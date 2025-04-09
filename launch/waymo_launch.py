@@ -8,7 +8,7 @@ def generate_launch_description():
             executable='lane_detection_node',
             name='lane_detection_node',
             output='screen'
-        ),
+        )
         
         # Node(
         #     package='state_manager_node',
@@ -17,11 +17,11 @@ def generate_launch_description():
         #     output='screen'
         # ),
 
-        Node(
-            package='gui_debug_node',
-            executable='gui_debug_node',
-            name='gui_debug_node',
-            output='screen'
-        ),
+        # Node(
+        #     package='gui_debug_node',
+        #     executable='gui_debug_node',
+        #     name='gui_debug_node',
+        #     output='screen'
+        # ),
         
     ])

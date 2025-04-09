@@ -35,11 +35,12 @@ class Lane:
         self.height = height
 
         # Vier Ecken des trapezförmigen Regions of Interest (ROI)
+        h, w = self.orig_frame.shape[:2]
         self.roi_points = np.float32([
-            (274, 184),  # Top-Left
-            (0, 337),    # Bottom-Left
-            (575, 337),  # Bottom-Right
-            (371, 184)   # Top-Right
+            (w * 0.45, h * 0.6),   # top-left
+            (w * 0.05, h * 0.95),  # bottom-left
+            (w * 0.95, h * 0.95),  # bottom-right
+            (w * 0.55, h * 0.6)    # top-right
         ])
 
         # Zielpunkte (nach der Perspektivtransformation)
@@ -435,6 +436,7 @@ class LaneDetectionNode(Node):
         out_msg.format = "jpeg"
         out_msg.data = buffer.tobytes()
         # Publiziere das annotierte Bild
+        cv2.imshow(out_msg)
         self.publisher_.publish(out_msg)
         self.get_logger().debug("Publizierte ein annotiertes Bild.")
 
