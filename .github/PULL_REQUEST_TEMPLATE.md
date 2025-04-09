@@ -13,8 +13,6 @@
 
 ## Checkliste
 
-- [ ] Der Code ist mit [CSharpier](https://github.com/belav/csharpier) formatiert.
-- [ ] Alle neuen und bestehenden Tests bestehen.
 - [ ] Passende Kommentare wurden zu allen wichtigen Codeabschnitten hinzugefügt.
 - [ ] Die Dokumentation wurde bei Bedarf aktualisiert.
 
