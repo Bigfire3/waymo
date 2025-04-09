@@ -21,6 +21,7 @@ setup(
     entry_points={
         'console_scripts': [
             'lane_detector = waymo.lane_detection_node:main'
+            'gui_debugger = waymo.gui_debug_node:main',
         ],
     },
 )
