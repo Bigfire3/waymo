@@ -4,7 +4,7 @@ from rclpy.node import Node
 from sensor_msgs.msg import CompressedImage
 import numpy as np
 import cv2
-import edge_detection as edge  # Dein Modul zur Kantenextraktion
+from . import edge_detection as edge  # Dein Modul zur Kantenextraktion
 #import matplotlib.pyplot as plt  # Für Debugging/Plotten (im Node auskommentiert)
 
 # --- Lane Detection Class -----------------------------------------------------
@@ -436,8 +436,8 @@ class LaneDetectionNode(Node):
         out_msg.format = "jpeg"
         out_msg.data = buffer.tobytes()
         # Publiziere das annotierte Bild
-        cv2.imshow(out_msg)
         self.publisher_.publish(out_msg)
+        cv2.imshow("Image with Curvature and Offset", out_msg)
         self.get_logger().debug("Publizierte ein annotiertes Bild.")
 
 def main(args=None):
