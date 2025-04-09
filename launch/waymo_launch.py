@@ -3,19 +3,24 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
     return LaunchDescription([
-        # Node from the py_state_machine package
         Node(
-            package='py_state_machine',
-            executable='py_state_manager',
-            name='py_state_manager',
+            package='lane_detection_node',
+            executable='lane_detection_node',
+            name='lane_detection_node',
             output='screen'
         ),
         
-        # Node from the line_follower package
+        # Node(
+        #     package='state_manager_node',
+        #     executable='state_manager_node',
+        #     name='state_manager_node',
+        #     output='screen'
+        # ),
+
         Node(
-            package='line_follower',
-            executable='drive_with_line_follower',
-            name='drive_with_line_follower',
+            package='gui_debug_node',
+            executable='gui_debug_node',
+            name='gui_debug_node',
             output='screen'
         ),
         
