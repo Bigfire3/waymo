@@ -266,6 +266,13 @@ class Lane:
         lefty = nonzeroy[left_lane_inds]
         rightx = nonzerox[right_lane_inds]
         righty = nonzeroy[right_lane_inds]
+
+        # Überprüfen, ob genügend Punkte vorhanden sind
+        if len(leftx) == 0 or len(lefty) == 0 or len(rightx) == 0 or len(righty) == 0:
+            self.left_fit = None
+            self.right_fit = None
+            return None, None
+
         left_fit = np.polyfit(lefty, leftx, 2)
         right_fit = np.polyfit(righty, rightx, 2)
         self.left_fit = left_fit
@@ -402,8 +409,7 @@ class LaneDetectionNode(Node):
             CompressedImage,
             '/image_raw/compressed',
             self.image_callback,
-            qos_policy,
-            10)
+            qos_policy)
         # Publisher für das annotierte Bild (als CompressedImage)
 
         self.publisher_ = self.create_publisher(CompressedImage, '/lane/image_annotated', qos_policy, 10)
@@ -428,6 +434,9 @@ class LaneDetectionNode(Node):
         lane_obj.calculate_histogram(plot=False)
         # 5. Suche nach den Linien mittels Sliding Windows
         left_fit, right_fit = lane_obj.get_lane_line_indices_sliding_windows(plot=False)
+        if left_fit is None or right_fit is None:
+            self.get_logger().warn('No lane found. Skip frame.')
+            return
         # 6. Feineinstellung über vorheriges Fenster
         lane_obj.get_lane_line_previous_window(left_fit, right_fit, plot=False)
         # 7. Overlay der erkannten Linien auf das Originalbild
@@ -436,7 +445,7 @@ class LaneDetectionNode(Node):
         lane_obj.calculate_curvature(print_to_terminal=False)
         lane_obj.calculate_car_position(print_to_terminal=False)
         annotated_frame = lane_obj.display_curvature_offset(frame=frame_with_lane_lines, plot=False)
-        cv2.imshow("Image with Curvature and Offset", annotated_frame)
+        #cv2.imshow("Image with Curvature and Offset", annotated_frame)
 
         # Kodieren des annotierten Bildes als JPEG
         ret, buffer = cv2.imencode('.jpg', annotated_frame)
