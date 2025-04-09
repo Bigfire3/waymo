@@ -8,7 +8,7 @@ def generate_launch_description():
             executable='lane_detection_node',
             name='lane_detection_node',
             output='screen'
-        )
+        ),
         
         # Node(
         #     package='waymo',
@@ -17,11 +17,11 @@ def generate_launch_description():
         #     output='screen'
         # ),
 
-        # Node(
-        #     package='waymo',
-        #     executable='gui_debug_node',
-        #     name='gui_debug_node',
-        #     output='screen'
-        # ),
+        Node(
+            package='waymo',
+            executable='gui_debug_node',
+            name='gui_debug_node',
+            output='screen'
+        ),
         
     ])

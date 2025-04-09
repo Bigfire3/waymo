@@ -21,8 +21,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'lane_detector = waymo.lane_detection_node:main'
-            'gui_debugger = waymo.gui_debug_node:main',
+            'lane_detection_node = waymo.lane_detection_node:main',
+            'gui_debug_node = waymo.gui_debug_node:main',
         ],
     },
 )
