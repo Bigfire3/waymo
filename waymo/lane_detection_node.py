@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import rclpy
+from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 from rclpy.node import Node
 from sensor_msgs.msg import CompressedImage
 import numpy as np
@@ -7,12 +8,15 @@ import cv2
 from . import edge_detection as edge # Dein Modul zur Kantenextraktion
 #import matplotlib.pyplot as plt  # Für Debugging/Plotten (im Node auskommentiert)
 
+
+
 # --- Lane Detection Class -----------------------------------------------------
 class Lane:
     """
     Repräsentiert eine Fahrspur (Lane) in einem Bild.
     """
     def __init__(self, orig_frame):
+    
         """
         Konstruktor mit Eingangsbild.
         :param orig_frame: Ursprüngliches Bild (BGR)
@@ -387,14 +391,22 @@ class Lane:
 class LaneDetectionNode(Node):
     def __init__(self):
         super().__init__('lane_detection_node')
+
+        # definition of the QoS in order to receive data despite WiFi
+        qos_policy = rclpy.qos.QoSProfile(reliability=rclpy.qos.ReliabilityPolicy.BEST_EFFORT,
+                                          history=rclpy.qos.HistoryPolicy.KEEP_LAST,
+                                          depth=1)
+        
         # Subscriber für das komprimierte Eingangssignal
         self.subscription = self.create_subscription(
             CompressedImage,
             '/image_raw/compressed',
             self.image_callback,
+            qos_policy,
             10)
         # Publisher für das annotierte Bild (als CompressedImage)
-        self.publisher_ = self.create_publisher(CompressedImage, '/lane/image_annotated', 10)
+
+        self.publisher_ = self.create_publisher(CompressedImage, '/lane/image_annotated', qos_policy, 10)
         self.get_logger().info('Lane Detection Node gestartet.')
 
     def image_callback(self, msg: CompressedImage):
@@ -424,6 +436,7 @@ class LaneDetectionNode(Node):
         lane_obj.calculate_curvature(print_to_terminal=False)
         lane_obj.calculate_car_position(print_to_terminal=False)
         annotated_frame = lane_obj.display_curvature_offset(frame=frame_with_lane_lines, plot=False)
+        cv2.imshow("Image with Curvature and Offset", annotated_frame)
 
         # Kodieren des annotierten Bildes als JPEG
         ret, buffer = cv2.imencode('.jpg', annotated_frame)
@@ -437,7 +450,6 @@ class LaneDetectionNode(Node):
         out_msg.data = buffer.tobytes()
         # Publiziere das annotierte Bild
         self.publisher_.publish(out_msg)
-        cv2.imshow("Image with Curvature and Offset", out_msg)
         self.get_logger().debug("Publizierte ein annotiertes Bild.")
 
 def main(args=None):
