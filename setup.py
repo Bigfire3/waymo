@@ -20,6 +20,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            'gui_debugger = waymo.gui_debug_node:main',
         ],
     },
 )
