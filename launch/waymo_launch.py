@@ -4,21 +4,21 @@ from launch_ros.actions import Node
 def generate_launch_description():
     return LaunchDescription([
         Node(
-            package='lane_detection_node',
+            package='waymo',
             executable='lane_detection_node',
             name='lane_detection_node',
             output='screen'
         )
         
         # Node(
-        #     package='state_manager_node',
+        #     package='waymo',
         #     executable='state_manager_node',
         #     name='state_manager_node',
         #     output='screen'
         # ),
 
         # Node(
-        #     package='gui_debug_node',
+        #     package='waymo',
         #     executable='gui_debug_node',
         #     name='gui_debug_node',
         #     output='screen'
