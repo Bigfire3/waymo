@@ -4,7 +4,7 @@ from rclpy.node import Node
 from sensor_msgs.msg import CompressedImage
 import numpy as np
 import cv2
-from . import edge_detection as edge  # Dein Modul zur Kantenextraktion
+from . import edge_detection as edge # Dein Modul zur Kantenextraktion
 #import matplotlib.pyplot as plt  # Für Debugging/Plotten (im Node auskommentiert)
 
 # --- Lane Detection Class -----------------------------------------------------
