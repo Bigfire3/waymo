@@ -30,5 +30,11 @@ def generate_launch_description():
             name='obstacle_detection_node',
             output='screen'
         ),
+        Node(
+            package='waymo',
+            executable='state_machine_node',
+            name='state_machine_node',
+            output='screen'
+        ),
 
     ])

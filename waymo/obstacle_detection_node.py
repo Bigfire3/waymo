@@ -19,6 +19,7 @@ class Obstacle_Detection(rclpy.node.Node):
         # Variable for the last sensor reading
         self.closest_distance = float('inf')
         self.closest_angle = 0.0
+        self.curr_state = 'DEFAULT'
 
         # QoS for subscriber
         qos_policy = rclpy.qos.QoSProfile(reliability=rclpy.qos.ReliabilityPolicy.BEST_EFFORT,
@@ -34,7 +35,7 @@ class Obstacle_Detection(rclpy.node.Node):
         self.subscription
 
         # Publisher for current state
-        self.publisher_ = self.create_publisher(String, 'state_machine', 1)
+        self.publisher_ = self.create_publisher(String, 'obstacle', 1)
 
         self.get_logger().info('Obstacle Detection Node started (dynamic parameters available)')
 
@@ -84,18 +85,23 @@ class Obstacle_Detection(rclpy.node.Node):
     # Logic for determining the current state
     def timer_callback(self):
         # Caching parameter for clarity
+        state = self.curr_state
         distance_stop = self.get_parameter(
             'distance_to_stop').get_parameter_value().double_value
         # If the closest object is too close, stop
         if self.closest_distance <= distance_stop:
-            state = "STOPPED"
+            new_state = "STOPPED"
         else:
-            state = "FOLLOW_LANE"
+            new_state = "FOLLOW_LANE"
+
+        if (state == new_state):
+            return
         # Create the String message to send to the robot
         msg = String()
-        msg.data = state
+        msg.data = new_state
         # Publish the message
-        self.get_logger().info(f'publishing state: {state}')
+        self.curr_state = new_state
+        self.get_logger().info(f'publishing state: {new_state}')
         self.publisher_.publish(msg)
 
     def destroy_node(self):
