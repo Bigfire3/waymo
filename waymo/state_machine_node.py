@@ -16,7 +16,6 @@ class StateMachine(rclpy.node.Node):
         super().__init__('StateMachine')
         self.declare_parameter('drivingspeed', 1.0)
         self.driving_speed = 0.0
-        self.declare_parameter('state')
         self.state = 'DEFAULT'
         qos_policy = rclpy.qos.QoSProfile(reliability=rclpy.qos.ReliabilityPolicy.BEST_EFFORT,
                                           history=rclpy.qos.HistoryPolicy.KEEP_LAST,
