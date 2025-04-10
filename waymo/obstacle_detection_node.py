@@ -1,10 +1,7 @@
-
-
 import rclpy
 import rclpy.node
 from std_msgs.msg import String
 from sensor_msgs.msg import LaserScan
-from geometry_msgs.msg import Twist
 import math
 
 
@@ -15,10 +12,9 @@ class Obstacle_Detection(rclpy.node.Node):
 
         # Declare parameters that can be changed at runtime
         self.declare_parameter('distance_to_stop', 0.3)
-        # In radians, e.g., -30 degrees
-        self.declare_parameter('angle_range_min', -1.0)
-        # In radians, e.g., 30 degrees
-        self.declare_parameter('angle_range_max', 1.0)
+        # In radians, angle range -180° to +180° (LIDAR format)
+        self.declare_parameter('angle_range_min', -(0.5) + math.pi)
+        self.declare_parameter('angle_range_max', (0.5) + math.pi)
 
         # Variable for the last sensor reading
         self.closest_distance = float('inf')
@@ -52,34 +48,38 @@ class Obstacle_Detection(rclpy.node.Node):
         self.closest_distance = float('inf')
         self.closest_angle = 0.0
         # Get the parameters for angle range
-        angle_min = msg.angle_min
-        angle_max = msg.angle_max
+        angle_min = msg.angle_min  # -π (or -180°)
+        angle_max = msg.angle_max  # +π (or +180°)
         angle_increment = msg.angle_increment
 
-        # Get the parameter values for the angle range
         angle_range_min = self.get_parameter(
             'angle_range_min').get_parameter_value().double_value
         angle_range_max = self.get_parameter(
             'angle_range_max').get_parameter_value().double_value
 
-        # Calculate the index range corresponding to the angle range
-        min_index = int((angle_range_min - angle_min) / angle_increment)
-        max_index = int((angle_range_max - angle_min) / angle_increment)
+        num_ranges = len(msg.ranges)
+        min_index = max(
+            0, int((angle_range_min - angle_min) / angle_increment))
+        max_index = min(
+            num_ranges - 1, int((angle_range_max - angle_min) / angle_increment))
 
-        # Iterate through the laser scan ranges within the given angle range
         for i in range(min_index, max_index + 1):
             range_value = msg.ranges[i]
-            # Ignore invalid readings (NaN or infinite)
-            if range_value == float('inf') or range_value == 0.0:
+            if math.isinf(range_value) or range_value == 0.0 or math.isnan(range_value):
                 continue
+            # Calculate the actual angle of this reading
+            angle = angle_min + i * angle_increment
 
-            # Update closest object
+            # Correct the angle by adding π to map it properly (if needed)
+            if angle < 0:  # If angle is negative (left side)
+                angle += math.pi  # Add 180 degrees to map it to the proper front-facing frame
+            else:
+                angle -= math.pi  # Subtract 180 degrees for right-side angles to align
+
+            # Check if this is the closest obstacle
             if range_value < self.closest_distance:
                 self.closest_distance = range_value
-                self.closest_angle = angle_min + i * angle_increment
-
-        # print(
-            # f'Closest Distance: {self.closest_distance}, Angle: {self.closest_angle}')
+                self.closest_angle = angle
 
     # Logic for determining the current state
     def timer_callback(self):
@@ -95,11 +95,12 @@ class Obstacle_Detection(rclpy.node.Node):
         msg = String()
         msg.data = state
         # Publish the message
+        self.get_logger().info(f'publishing state: {state}')
         self.publisher_.publish(msg)
 
     def destroy_node(self):
         self.get_logger().info("Destroying Obstacle Detection Node...")
-        super().destroy_node
+        super().destroy_node()
 
 
 def main(args=None):
