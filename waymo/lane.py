@@ -83,8 +83,8 @@ class Lane:
         self.histogram = None
 
         # Parameter für die Sliding-Window-Methode
-        self.no_of_windows = 10  # 10
-        self.margin = int((1/12) * width)  # 1/12
+        self.no_of_windows = 7  # 10
+        self.margin = int((1/8) * width)  # 1/12
         self.minpix = int((1/24) * width)
 
     def calculate_car_position(self, print_to_terminal=False, **params):
@@ -221,9 +221,6 @@ class Lane:
             self.right_fit = None
 
     def get_lane_line_indices_sliding_windows(self, plot=False):
-        if self.filtered_warped_frame is None:
-            return
-        
         margin = self.margin
 
         frame_sliding_window = self.filtered_warped_frame.copy()
@@ -419,6 +416,9 @@ class Lane:
             cv2.imshow('Warped Image', warped_plot)
     
     def filter_lane_markings_by_thickness(self, plot=False, **params):       
+        if (self.warped_frame is None):
+            return
+        
         min_thickness = params.get('min_thickness')
         max_thickness = params.get('max_thickness')
 

@@ -30,13 +30,13 @@ class LaneDetectionNode(Node):
         # Thresholding
         # auto s_binary
         self.declare_parameter('block_size', 11, int_desc("Auto-S: block_size"))
-        self.declare_parameter('c_value', 10, int_desc("Auto-S: c_value"))
+        self.declare_parameter('c_value', 30, int_desc("Auto-S: c_value"))
 
         self.declare_parameter('center_factor', 0.02, float_desc("Center_Calc: factor"))
         
         # line thickness filter
         self.declare_parameter(
-            'min_thickness', 3.0,
+            'min_thickness', 2.5,
             ParameterDescriptor(
                 type=ParameterType.PARAMETER_DOUBLE,
                 description="Minimum thickness ratio for filtering lane contours",
@@ -65,11 +65,11 @@ class LaneDetectionNode(Node):
         # Perspective Transform ROI
         self.declare_parameter('roi_top_left_w', 0.2,
                                float_desc("ROI TL Breite"))
-        self.declare_parameter('roi_top_left_h', 0.7,
+        self.declare_parameter('roi_top_left_h', 0.65,
                                float_desc("ROI TL Höhe"))
         self.declare_parameter('roi_top_right_w', 0.8,
                                float_desc("ROI TR Breite"))
-        self.declare_parameter('roi_top_right_h', 0.7,
+        self.declare_parameter('roi_top_right_h', 0.65,
                                float_desc("ROI TR Höhe"))
         self.declare_parameter('roi_bottom_left_w', 0.0,
                                float_desc("ROI BL Breite"))
