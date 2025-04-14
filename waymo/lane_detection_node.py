@@ -27,9 +27,9 @@ class LaneDetectionNode(Node):
 
         # Thresholding
         self.declare_parameter('block_size', 11, int_desc("Auto-S: block_size"))
-        self.declare_parameter('c_value', 200, int_desc("Auto-S: c_value"))
+        self.declare_parameter('c_value', 10, int_desc("Auto-S: c_value"))
 
-        self.declare_parameter('center_factor', 0.01, float_desc("Center_Calc: factor"))
+        self.declare_parameter('center_factor', 0.02, float_desc("Center_Calc: factor"))
 
         # self.declare_parameter('s_thresh_min', 80, int_desc("S-Kanal: Untere Schwelle"))
         # self.declare_parameter('s_thresh_max', 255, int_desc("S-Kanal: Obere Schwelle"))
