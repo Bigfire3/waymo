@@ -89,9 +89,9 @@ class Lane:
             (w * params.get('roi_bottom_left_w', 0.0), h *
              params.get('roi_bottom_left_h', 1.0)),     # bottom-left
             (w * params.get('roi_bottom_right_w', 1.0), h *
-             params.get('roi_bottom_right_h', 1.0)),     # bottom-right
+             params.get('roi_bottom_right_h', 0.85)),     # bottom-right
             (w * params.get('roi_top_right_w', 0.85), h *
-             params.get('roi_top_right_h', 0.70))     # top-right
+             params.get('roi_top_right_h', 0.55))     # top-right
         ])
 
         # Zielpunkte für die Perspektivtransformation
@@ -108,23 +108,9 @@ class Lane:
         self.histogram = None
 
         # Parameter für die Sliding-Window-Methode
-        self.no_of_windows = 10
-        self.margin = int((1/12) * width)
+        self.no_of_windows = 10  # 10
+        self.margin = int((1/40) * width)  # 1/12
         self.minpix = int((1/24) * width)
-
-    def smooth_lane_center(self, current_center, alpha=0.1):
-        """
-        Glättet den Fahrspurmittelwert (x-Wert) am unteren Bildrand.
-        current_center: aktueller berechneter Mittelwert (in Pixel)
-        alpha: Glättungsfaktor (0 < alpha < 1); ein kleinerer Wert bewirkt mehr Glättung.
-        """
-        if self.previous_lane_center is None:
-            self.previous_lane_center = current_center
-            return current_center
-        smoothed_center = alpha * current_center + \
-            (1 - alpha) * self.previous_lane_center
-        self.previous_lane_center = smoothed_center
-        return smoothed_center
 
     def calculate_car_position(self, print_to_terminal=False, **params):
         """
@@ -268,12 +254,16 @@ class Lane:
         nonzero = self.warped_frame.nonzero()
         nonzeroy = np.array(nonzero[0])
         nonzerox = np.array(nonzero[1])
+        peaks = self.select_lane_peaks(
+            self.histogram, target_distance=250, min_peak_value=5000)
 
-        leftx_base, rightx_base = self.histogram_peak()
-        if leftx_base is None or rightx_base is None:
+        if peaks is None or peaks[0] is None or peaks[1] is None:
             self.left_fit = None
             self.right_fit = None
             return None, None
+
+        leftx_base, rightx_base = peaks
+
         leftx_current = leftx_base
         rightx_current = rightx_base
         left_lane_inds = []
@@ -296,10 +286,26 @@ class Lane:
                                (nonzerox >= win_xright_low) & (nonzerox < win_xright_high)).nonzero()[0]
             left_lane_inds.append(good_left_inds)
             right_lane_inds.append(good_right_inds)
+
             if len(good_left_inds) > self.minpix:
                 leftx_current = int(np.mean(nonzerox[good_left_inds]))
             if len(good_right_inds) > self.minpix:
                 rightx_current = int(np.mean(nonzerox[good_right_inds]))
+
+            # # Nur in eine Richtung verschieben
+            # # Links
+            # if len(good_left_inds) > self.minpix:
+            #     mean_x = int(np.mean(nonzerox[good_left_inds]))
+            #     if mean_x < leftx_current:
+            #         leftx_current = mean_x  # nur weiter nach links erlaubt
+            #     # else: bleib auf Position
+
+            # # Rechts
+            # if len(good_right_inds) > self.minpix:
+            #     mean_x = int(np.mean(nonzerox[good_right_inds]))
+            #     if mean_x > rightx_current:
+            #         rightx_current = mean_x  # nur weiter nach rechts erlaubt
+            #     # else: bleib auf Position
 
         left_lane_inds = np.concatenate(left_lane_inds)
         right_lane_inds = np.concatenate(right_lane_inds)
@@ -320,21 +326,17 @@ class Lane:
             return None, None
         self.left_fit = left_fit
         self.right_fit = right_fit
+
         if plot:
-            ploty = np.linspace(
-                0, frame_sliding_window.shape[0]-1, frame_sliding_window.shape[0])
-            left_fitx = left_fit[0]*ploty + left_fit[1] * \
-                ploty + left_fit[2]  # Fallback
-            right_fitx = right_fit[0]*ploty**2 + \
-                right_fit[1]*ploty + right_fit[2]
-            out_img = np.dstack(
-                (frame_sliding_window, frame_sliding_window, frame_sliding_window)) * 255
+
+            out_img = cv2.cvtColor(frame_sliding_window, cv2.COLOR_GRAY2BGR)
             out_img[nonzeroy[left_lane_inds],
                     nonzerox[left_lane_inds]] = [255, 0, 0]
             out_img[nonzeroy[right_lane_inds],
                     nonzerox[right_lane_inds]] = [0, 0, 255]
             cv2.imshow("Sliding Window Search", out_img)
             cv2.waitKey(1)
+
         return self.left_fit, self.right_fit
 
     def get_line_markings(self, frame=None, **params):
@@ -357,7 +359,7 @@ class Lane:
         return self.lane_line_markings
 
     @staticmethod
-    def select_lane_peaks(histogram, target_distance=450, min_peak_value=1500):
+    def select_lane_peaks(histogram, target_distance=250, min_peak_value=5000):
         peaks = []
         for i in range(1, len(histogram)-1):
             if histogram[i] > histogram[i-1] and histogram[i] >= histogram[i+1] and histogram[i] >= min_peak_value:
@@ -370,14 +372,13 @@ class Lane:
             for j in range(i+1, len(peaks)):
                 current_distance = abs(peaks[j]-peaks[i])
                 diff = abs(current_distance - target_distance)
-                if diff < best_diff:
+                if diff < best_diff and diff < 20:
                     best_diff = diff
                     best_pair = (min(peaks[i], peaks[j]),
                                  max(peaks[i], peaks[j]))
-        return best_pair
 
-    def histogram_peak(self):
-        return Lane.select_lane_peaks(self.histogram, target_distance=450, min_peak_value=1500)
+        # print(best_diff, flush=True)
+        return best_pair
 
     def overlay_lane_lines(self, plot=False):
         if self.left_fit is None or self.right_fit is None:

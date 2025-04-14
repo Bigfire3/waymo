@@ -1,6 +1,6 @@
 import rclpy
 import rclpy.node
-from std_msgs.msg import String
+from std_msgs.msg import Bool
 from sensor_msgs.msg import LaserScan
 import math
 
@@ -10,18 +10,16 @@ class Obstacle_Detection(rclpy.node.Node):
     def __init__(self):
         super().__init__('drive_with_scanner')
 
-        # Declare parameters that can be changed at runtime
-        self.declare_parameter('distance_to_stop', 0.3)
+        self.declare_parameter('distance_to_stop', 0.2)
         # In radians, angle range -180° to +180° (LIDAR format)
-        self.declare_parameter('angle_range_min', -(0.5) + math.pi)
-        self.declare_parameter('angle_range_max', (0.5) + math.pi)
+        self.declare_parameter('angle_range_min', -(0.2) + math.pi)
+        self.declare_parameter('angle_range_max', (0.2) + math.pi)
 
         # Variable for the last sensor reading
         self.closest_distance = float('inf')
         self.closest_angle = 0.0
-        self.curr_state = 'WAYMO_STARTED'
+        self.blocked = None
 
-        # QoS for subscriber
         qos_policy = rclpy.qos.QoSProfile(reliability=rclpy.qos.ReliabilityPolicy.BEST_EFFORT,
                                           history=rclpy.qos.HistoryPolicy.KEEP_LAST,
                                           depth=1)
@@ -35,15 +33,12 @@ class Obstacle_Detection(rclpy.node.Node):
         self.subscription
 
         # Publisher for current state
-        self.publisher_ = self.create_publisher(String, 'obstacle', 1)
-
-        # self.get_logger().info('Obstacle Detection Node started (dynamic parameters available)')
+        self.blocked_publisher_ = self.create_publisher(Bool, 'obstacle/blocked', qos_policy)
 
         # Create a timer to periodically update / publish the current state
         timer_period = 0.2  # seconds
         self.my_timer = self.create_timer(timer_period, self.timer_callback)
 
-    # Handling received laser scan data
     def scanner_callback(self, msg):
         # Find the closest object within the angle range
         self.closest_distance = float('inf')
@@ -84,25 +79,21 @@ class Obstacle_Detection(rclpy.node.Node):
 
     # Logic for determining the current state
     def timer_callback(self):
-        # Caching parameter for clarity
-        state = self.curr_state
-        distance_stop = self.get_parameter(
-            'distance_to_stop').get_parameter_value().double_value
+        blocked = self.blocked
+        distance_stop = self.get_parameter('distance_to_stop').get_parameter_value().double_value
+        
         # If the closest object is too close, stop
         if self.closest_distance <= distance_stop:
-            new_state = "STOPPED"
+            blocked = True
         else:
-            new_state = "FOLLOW_LANE"
+            blocked = False
 
-        if (state == new_state):
+        if (self.blocked == blocked):
             return
-        # Create the String message to send to the robot
-        msg = String()
-        msg.data = new_state
-        # Publish the message
-        self.curr_state = new_state
-        # self.get_logger().info(f'publishing state: {new_state}')
-        self.publisher_.publish(msg)
+
+        msg = Bool()
+        msg.data = blocked
+        self.blocked_publisher_.publish(msg)
 
     def destroy_node(self):
         # self.get_logger().info("Destroying Obstacle Detection Node...")

@@ -4,7 +4,7 @@ import cv2
 import numpy as np
 import time
 
-from std_msgs.msg import String, Float64
+from std_msgs.msg import String, Float64, Bool
 from geometry_msgs.msg import Twist
 from sensor_msgs.msg import CompressedImage
 from cv_bridge import CvBridge, CvBridgeError
@@ -22,7 +22,7 @@ class StateMachine(rclpy.node.Node):
         qos_policy = rclpy.qos.QoSProfile(reliability=rclpy.qos.ReliabilityPolicy.BEST_EFFORT,
                                           history=rclpy.qos.HistoryPolicy.KEEP_LAST,
                                           depth=1)
-        self.obstacle_subscription = self.create_subscription(String, 'obstacle', self.obstacle_detection_callback, qos_profile=qos_policy)
+        self.obstacle_subscription = self.create_subscription(Bool, 'obstacle/blocked', self.obstacle_detection_callback, qos_profile=qos_policy)
         self.offset_subscription = self.create_subscription(Float64, 'lane/center_offset', self.lane_detection_callback, qos_profile=qos_policy)
 
         self.state_publisher_ = self.create_publisher(String, 'robot/state', 1)
@@ -44,25 +44,17 @@ class StateMachine(rclpy.node.Node):
             case 'FOLLOW_LANE':
                 self.driving_speed = 0.15
                 self.angular_z = self.center_offset
-                #self.send_cmd_vel(self.driving_speed, self.angular_z)
+                self.send_cmd_vel(self.driving_speed, self.angular_z)
         
         self.state_publisher_.publish(String(data=self.state))
 
-
-        # if (state == 'STOPPED' or state == 'WAYMO_STARTED'):
-        #     self.driving_speed = 0.0
-        #     speed = self.driving_speed
-        # elif (state == 'FOLLOW_LANE'):
-        #     self.driving_speed = 0.15
-        #     speed = self.driving_speed
-        # else:
-        #     self.get_logger().error('undefined behavior')
-        # self.get_logger().info(f'current speed: {speed}')
-
     def obstacle_detection_callback(self, msg):
-        state = msg.data
-        self.state = state
-        self.logic_function()        
+        blocked = msg.data
+        if (blocked):
+            self.state = 'STOPPED'
+        else:
+            self.state = 'FOLLOW_LANE'
+        self.logic_function()     
 
     def lane_detection_callback(self, msg):
         self.center_offset = msg.data

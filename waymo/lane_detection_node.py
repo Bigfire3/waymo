@@ -43,6 +43,12 @@ class LaneDetectionNode(Node):
                     from_value=0.01, to_value=200.0, step=0.001)]
             )
         )
+        self.declare_parameter(
+            'block_size', 11, int_desc("Auto-S: block_size"))
+        self.declare_parameter('c_value', 10, int_desc("Auto-S: c_value"))
+
+        self.declare_parameter('center_factor', 0.02,
+                               float_desc("Center_Calc: factor"))
 
         self.declare_parameter(
             'max_thickness', 5.0,
@@ -115,48 +121,48 @@ class LaneDetectionNode(Node):
         self.lane_obj.update_frame(frame, **current_params)
 
         # Führe alle Verarbeitungsschritte durch
-        self.lane_line_markings = self.lane_obj.get_line_markings(
-            **current_params)
-        # z. B. öffnet Fenster "ROI Image"
-        self.lane_obj.plot_roi(plot=True)
-        self.warped_frame = self.lane_obj.perspective_transform(
-            plot=True)  # z. B. Fenster "Warped Image"
-        self.filterd_lane_markings = self.lane_obj.filter_lane_markings_by_thickness(
-            self.warped_frame, min_thickness=min_thickness, max_thickness=max_thickness, plot=True)
-        self.histogram = self.lane_obj.calculate_histogram(
-            frame=self.filterd_lane_markings, plot=False)
-        self.left_fit, right_fit = self.lane_obj.get_lane_line_indices_sliding_windows(binary_img=self.filterd_lane_markings,
-                                                                                       plot=False)
+   self.lane_line_markings = self.lane_obj.get_line_markings(
+        **current_params)
+    # z. B. öffnet Fenster "ROI Image"
+    self.lane_obj.plot_roi(plot=True)
+    self.warped_frame = self.lane_obj.perspective_transform(
+        plot=True)  # z. B. Fenster "Warped Image"
+    self.filterd_lane_markings = self.lane_obj.filter_lane_markings_by_thickness(
+        self.warped_frame, min_thickness=min_thickness, max_thickness=max_thickness, plot=True)
+    self.histogram = self.lane_obj.calculate_histogram(
+        frame=self.filterd_lane_markings, plot=False)
+    self.left_fit, right_fit = self.lane_obj.get_lane_line_indices_sliding_windows(binary_img=self.filterd_lane_markings,
+                                                                                   plot=False)
 
-        if self.left_fit is not None and right_fit is not None:
-            self.lane_obj.get_lane_line_previous_window(
-                self.left_fit, right_fit, plot=False)
-            frame_with_lane_lines = self.lane_obj.overlay_lane_lines(
-                plot=False)
-            self.lane_obj.calculate_curvature(print_to_terminal=False)
-            self.lane_obj.calculate_car_position(
-                print_to_terminal=False, **current_params)
-            self.final_frame = self.lane_obj.display_curvature_offset(
-                frame=frame_with_lane_lines, plot=False)
-        else:
-            self.final_frame = frame
+   if self.left_fit is not None and right_fit is not None:
+        self.lane_obj.get_lane_line_previous_window(
+            self.left_fit, right_fit, plot=False)
+        frame_with_lane_lines = self.lane_obj.overlay_lane_lines(
+            plot=False)
+        self.lane_obj.calculate_curvature(print_to_terminal=False)
+        self.lane_obj.calculate_car_position(
+            print_to_terminal=False, **current_params)
+        self.final_frame = self.lane_obj.display_curvature_offset(
+            frame=frame_with_lane_lines, plot=False)
+    else:
+        self.final_frame = frame
 
-        # Publish final image
-        ret, buffer = cv2.imencode('.jpg', self.final_frame)
-        if not ret:
-            return
-        out_msg = CompressedImage(
-            header=msg.header, format="jpeg", data=buffer.tobytes())
-        self.img_publisher_.publish(out_msg)
+    # Publish final image
+    ret, buffer = cv2.imencode('.jpg', self.final_frame)
+    if not ret:
+        return
+    out_msg = CompressedImage(
+        header=msg.header, format="jpeg", data=buffer.tobytes())
+    self.img_publisher_.publish(out_msg)
 
-        offset_msg = Float64()
-        if self.lane_obj.center_offset is not None:
-            offset_msg.data = float(self.lane_obj.center_offset)
-            # Publish center offset to topic /lane/center_offset
-            self.driving_publisher_.publish(offset_msg)
-        else:
-            offset_msg.data = 0.0
-            self.driving_publisher_.publish(offset_msg)
+    offset_msg = Float64()
+    if self.lane_obj.center_offset is not None:
+        offset_msg.data = float(self.lane_obj.center_offset)
+        # Publish center offset to topic /lane/center_offset
+        self.driving_publisher_.publish(offset_msg)
+    else:
+        offset_msg.data = 0.0
+        self.driving_publisher_.publish(offset_msg)
 
 
 def main(args=None):
