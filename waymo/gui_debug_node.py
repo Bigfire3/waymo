@@ -70,18 +70,18 @@ class GuiDebugNode(Node):
         return img
 
     # --- Callback Funktion für Bilder (ohne Logging) ---
-    def image_callback(self, msg):
-        """ Verarbeitet Bildnachrichten und zeigt sie an (ohne Logging). """
-        if not self.gui_enabled: return
-        try:
-            if self.image_msg_type == CompressedImage:
-                cv_image = self.bridge.compressed_imgmsg_to_cv2(msg, "bgr8")
-            else:
-                cv_image = self.bridge.imgmsg_to_cv2(msg, "bgr8")
-            cv2.imshow(self.gui_window_name, cv_image)
-            cv2.waitKey(1)
-        except CvBridgeError: pass # Fehler still ignorieren
-        except Exception: pass    # Fehler still ignorieren
+    def image_callback(self, msg, plot=False):
+        if (plot):
+            if not self.gui_enabled: return
+            try:
+                if self.image_msg_type == CompressedImage:
+                    cv_image = self.bridge.compressed_imgmsg_to_cv2(msg, "bgr8")
+                else:
+                    cv_image = self.bridge.imgmsg_to_cv2(msg, "bgr8")
+                cv2.imshow(self.gui_window_name, cv_image)
+                cv2.waitKey(1)
+            except CvBridgeError: pass # Fehler still ignorieren
+            except Exception: pass    # Fehler still ignorieren
 
     # --- Callback Funktion für Status (loggt nur bei Änderung) ---
     def state_callback(self, msg: String):
