@@ -79,10 +79,10 @@ class LaneDetectionNode(Node):
 
         # Führe alle Verarbeitungsschritte durch
         self.lane_line_markings = self.lane_obj.get_line_markings(**current_params)
-        self.lane_obj.plot_roi(plot=True)                # z. B. öffnet Fenster "ROI Image"
-        self.warped_frame = self.lane_obj.perspective_transform(plot=True)  # z. B. Fenster "Warped Image"
+        self.lane_obj.plot_roi(plot=True)
+        self.warped_frame = self.lane_obj.perspective_transform(plot=False)
         self.histogram = self.lane_obj.calculate_histogram(plot=False)
-        self.left_fit, right_fit = self.lane_obj.get_lane_line_indices_sliding_windows(plot=False)
+        self.left_fit, right_fit = self.lane_obj.get_lane_line_indices_sliding_windows(plot=True)
 
         if self.left_fit is not None and right_fit is not None:
             self.lane_obj.get_lane_line_previous_window(self.left_fit, right_fit, plot=False)
