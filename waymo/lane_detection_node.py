@@ -28,12 +28,13 @@ class LaneDetectionNode(Node):
             floating_point_range=[FloatingPointRange(from_value=min_val, to_value=max_val, step=step)])
 
         # Thresholding
-        self.declare_parameter(
-            'block_size', 11, int_desc("Auto-S: block_size"))
-        self.declare_parameter('c_value', 200, int_desc("Auto-S: c_value"))
+        # auto s_binary
+        self.declare_parameter('block_size', 11, int_desc("Auto-S: block_size"))
+        self.declare_parameter('c_value', 10, int_desc("Auto-S: c_value"))
 
-        self.declare_parameter('center_factor', 0.01,
-                               float_desc("Center_Calc: factor"))
+        self.declare_parameter('center_factor', 0.02, float_desc("Center_Calc: factor"))
+        
+        # line thickness filter
         self.declare_parameter(
             'min_thickness', 3.0,
             ParameterDescriptor(
@@ -43,13 +44,6 @@ class LaneDetectionNode(Node):
                     from_value=0.01, to_value=200.0, step=0.001)]
             )
         )
-        self.declare_parameter(
-            'block_size', 11, int_desc("Auto-S: block_size"))
-        self.declare_parameter('c_value', 10, int_desc("Auto-S: c_value"))
-
-        self.declare_parameter('center_factor', 0.02,
-                               float_desc("Center_Calc: factor"))
-
         self.declare_parameter(
             'max_thickness', 5.0,
             ParameterDescriptor(
@@ -123,17 +117,17 @@ class LaneDetectionNode(Node):
         # Führe alle Verarbeitungsschritte durch
         self.lane_line_markings = self.lane_obj.get_line_markings(**current_params)
         self.lane_obj.plot_roi(plot=True)
-        self.warped_frame = self.lane_obj.perspective_transform(plot=False)
-        self.filterd_lane_markings = self.lane_obj.filter_lane_markings_by_thickness(self.warped_frame, min_thickness=min_thickness, max_thickness=max_thickness, plot=True)
-        self.histogram = self.lane_obj.calculate_histogram(frame=self.filterd_lane_markings, plot=False)
-        self.left_fit, right_fit = self.lane_obj.get_lane_line_indices_sliding_windows(binary_img=self.filterd_lane_markings, plot=True)
+        self.lane_obj.perspective_transform(plot=True)
+        self.lane_obj.filter_lane_markings_by_thickness(plot=False, **current_params)
+        self.histogram = self.lane_obj.calculate_histogram(plot=False)
+        self.left_fit, right_fit = self.lane_obj.get_lane_line_indices_sliding_windows(plot=True)
 
         if self.left_fit is not None and right_fit is not None:
             self.lane_obj.get_lane_line_previous_window(self.left_fit, right_fit, plot=False)
-            frame_with_lane_lines = self.lane_obj.overlay_lane_lines(plot=False)
+            self.lane_obj.overlay_lane_lines(plot=False)
             self.lane_obj.calculate_curvature(print_to_terminal=False)
             self.lane_obj.calculate_car_position(print_to_terminal=False, **current_params)
-            self.final_frame = self.lane_obj.display_curvature_offset(frame=frame_with_lane_lines, plot=False)
+            self.final_frame = self.lane_obj.display_curvature_offset(plot=False)
         else:
             self.final_frame = frame
 

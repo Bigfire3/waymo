@@ -41,28 +41,6 @@ class Lane:
 
         self.current_center = None
 
-    def filter_lane_markings_by_thickness(self, binary_img, min_thickness=(0.01), max_thickness=(0.5), plot=False):
-        contours, _ = cv2.findContours(
-            binary_img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        filtered_mask = np.zeros_like(binary_img)
-
-        for contour in contours:
-            area = cv2.contourArea(contour)
-            perimeter = cv2.arcLength(contour, True)
-            if perimeter == 0:
-                continue
-            thickness = area / perimeter
-
-            if min_thickness <= thickness <= max_thickness:
-                cv2.drawContours(
-                    filtered_mask, [contour], -1, 255, thickness=cv2.FILLED)
-
-        if plot:
-            cv2.imshow("Filtered Lane Markings", filtered_mask)
-            cv2.waitKey(1)
-
-        return filtered_mask
-
     def update_frame(self, orig_frame, **params):
         self.orig_frame = orig_frame
 
@@ -71,6 +49,7 @@ class Lane:
 
         # Bild nach der Perspektivtransformation
         self.warped_frame = None
+        self.filtered_warped_frame = None
         self.transformation_matrix = None
         self.inv_transformation_matrix = None
 
@@ -84,14 +63,10 @@ class Lane:
         # Vier Ecken des trapezförmigen ROI (Region of Interest)
         h, w = self.orig_frame.shape[:2]
         self.roi_points = np.float32([
-            (w * params.get('roi_top_left_w', 0.15), h *
-             params.get('roi_top_left_h', 0.70)),   # top-left
-            (w * params.get('roi_bottom_left_w', 0.0), h *
-             params.get('roi_bottom_left_h', 1.0)),     # bottom-left
-            (w * params.get('roi_bottom_right_w', 1.0), h *
-             params.get('roi_bottom_right_h', 0.85)),     # bottom-right
-            (w * params.get('roi_top_right_w', 0.85), h *
-             params.get('roi_top_right_h', 0.55))     # top-right
+            (w * params.get('roi_top_left_w'), h * params.get('roi_top_left_h')),   # top-left
+            (w * params.get('roi_bottom_left_w'), h * params.get('roi_bottom_left_h')),     # bottom-left
+            (w * params.get('roi_bottom_right_w'), h * params.get('roi_bottom_right_h')),     # bottom-right
+            (w * params.get('roi_top_right_w'), h * params.get('roi_top_right_h'))     # top-right
         ])
 
         # Zielpunkte für die Perspektivtransformation
@@ -109,7 +84,7 @@ class Lane:
 
         # Parameter für die Sliding-Window-Methode
         self.no_of_windows = 10  # 10
-        self.margin = int((1/40) * width)  # 1/12
+        self.margin = int((1/12) * width)  # 1/12
         self.minpix = int((1/24) * width)
 
     def calculate_car_position(self, print_to_terminal=False, **params):
@@ -173,7 +148,7 @@ class Lane:
 
     def calculate_histogram(self, frame=None, plot=False):
         if frame is None:
-            frame = self.warped_frame
+            frame = self.filtered_warped_frame
         self.histogram = np.sum(frame[int(frame.shape[0] / 2):, :], axis=0)
         if plot:
             fig, (ax1, ax2) = plt.subplots(2, 1)
@@ -203,7 +178,7 @@ class Lane:
         if left_fit is None or right_fit is None:
             return
         margin = self.margin
-        nonzero = self.warped_frame.nonzero()
+        nonzero = self.filtered_warped_frame.nonzero()
         nonzeroy = np.array(nonzero[0])
         nonzerox = np.array(nonzero[1])
         left_lane_inds = ((nonzerox > (left_fit[0]*(nonzeroy**2)+left_fit[1]*nonzeroy+left_fit[2]-margin)) &
@@ -227,14 +202,14 @@ class Lane:
             self.left_fit = left_fit
             self.right_fit = right_fit
             self.ploty = np.linspace(
-                0, self.warped_frame.shape[0]-1, self.warped_frame.shape[0])
+                0, self.filtered_warped_frame.shape[0]-1, self.filtered_warped_frame.shape[0])
             self.left_fitx = left_fit[0]*self.ploty**2 + \
                 left_fit[1]*self.ploty + left_fit[2]
             self.right_fitx = right_fit[0]*self.ploty**2 + \
                 right_fit[1]*self.ploty + right_fit[2]
             if plot:
                 out_img = np.dstack(
-                    (self.warped_frame, self.warped_frame, self.warped_frame))*255
+                    (self.filtered_warped_frame, self.filtered_warped_frame, self.filtered_warped_frame))*255
                 out_img[nonzeroy[left_lane_inds],
                         nonzerox[left_lane_inds]] = [255, 0, 0]
                 out_img[nonzeroy[right_lane_inds],
@@ -245,13 +220,16 @@ class Lane:
             self.left_fit = None
             self.right_fit = None
 
-    def get_lane_line_indices_sliding_windows(self, binary_img=None, plot=False):
-        if binary_img is None:
-            binary_img = self.warped_frame
+    def get_lane_line_indices_sliding_windows(self, plot=False):
+        if self.filtered_warped_frame is None:
+            return
+        
         margin = self.margin
-        frame_sliding_window = self.warped_frame.copy()
-        window_height = int(self.warped_frame.shape[0] / self.no_of_windows)
-        nonzero = self.warped_frame.nonzero()
+
+        frame_sliding_window = self.filtered_warped_frame.copy()
+
+        window_height = int(self.filtered_warped_frame.shape[0] / self.no_of_windows)
+        nonzero = self.filtered_warped_frame.nonzero()
         nonzeroy = np.array(nonzero[0])
         nonzerox = np.array(nonzero[1])
         peaks = self.select_lane_peaks(
@@ -270,8 +248,8 @@ class Lane:
         right_lane_inds = []
 
         for window in range(self.no_of_windows):
-            win_y_low = self.warped_frame.shape[0] - (window+1)*window_height
-            win_y_high = self.warped_frame.shape[0] - window*window_height
+            win_y_low = self.filtered_warped_frame.shape[0] - (window+1)*window_height
+            win_y_high = self.filtered_warped_frame.shape[0] - window*window_height
             win_xleft_low = leftx_current - margin
             win_xleft_high = leftx_current + margin
             win_xright_low = rightx_current - margin
@@ -383,7 +361,7 @@ class Lane:
     def overlay_lane_lines(self, plot=False):
         if self.left_fit is None or self.right_fit is None:
             return self.orig_frame
-        warp_zero = np.zeros_like(self.warped_frame).astype(np.uint8)
+        warp_zero = np.zeros_like(self.filtered_warped_frame).astype(np.uint8)
         color_warp = np.dstack((warp_zero, warp_zero, warp_zero))
         pts_left = np.array(
             [np.transpose(np.vstack([self.left_fitx, self.ploty]))])
@@ -439,7 +417,30 @@ class Lane:
             warped_plot = cv2.polylines(warped_copy, [np.int32(
                 self.desired_roi_points)], True, (147, 20, 255), 3)
             cv2.imshow('Warped Image', warped_plot)
-        return self.warped_frame
+    
+    def filter_lane_markings_by_thickness(self, plot=False, **params):       
+        min_thickness = params.get('min_thickness')
+        max_thickness = params.get('max_thickness')
+
+        contours, _ = cv2.findContours(self.warped_frame, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        filtered_mask = np.zeros_like(self.warped_frame)
+
+        for contour in contours:
+            area = cv2.contourArea(contour)
+            perimeter = cv2.arcLength(contour, True)
+            if perimeter == 0:
+                continue
+            thickness = area / perimeter
+
+            if min_thickness <= thickness <= max_thickness:
+                cv2.drawContours(
+                    filtered_mask, [contour], -1, 255, thickness=cv2.FILLED)
+
+        self.filtered_warped_frame = filtered_mask
+
+        if plot:
+            cv2.imshow("Filtered Lane Markings", filtered_mask)
+            cv2.waitKey(1)
 
     def plot_roi(self, frame=None, plot=False):
         if not plot:
