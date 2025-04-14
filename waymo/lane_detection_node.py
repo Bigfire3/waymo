@@ -3,6 +3,7 @@ import rclpy
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 from rclpy.node import Node
 from sensor_msgs.msg import CompressedImage
+from std_msgs.msg import Float64
 import sys
 import traceback
 from rcl_interfaces.msg import ParameterDescriptor, SetParametersResult, ParameterType, IntegerRange, FloatingPointRange
@@ -25,10 +26,10 @@ class LaneDetectionNode(Node):
             floating_point_range=[FloatingPointRange(from_value=min_val, to_value=max_val, step=step)])
 
         # Thresholding
-        self.declare_parameter('block_size', 5, int_desc("Auto-S: block_size"))
-        self.declare_parameter('c_value', 0, int_desc("Auto-S: c_value"))
+        self.declare_parameter('block_size', 11, int_desc("Auto-S: block_size"))
+        self.declare_parameter('c_value', 200, int_desc("Auto-S: c_value"))
 
-        self.declare_parameter('center_factor', 0.5, float_desc("Center_Calc: factor"))
+        self.declare_parameter('center_factor', 0.01, float_desc("Center_Calc: factor"))
 
         # self.declare_parameter('s_thresh_min', 80, int_desc("S-Kanal: Untere Schwelle"))
         # self.declare_parameter('s_thresh_max', 255, int_desc("S-Kanal: Obere Schwelle"))
@@ -53,12 +54,11 @@ class LaneDetectionNode(Node):
         # --- QoS und Subscriber/Publisher ---
         qos_policy = QoSProfile(reliability=ReliabilityPolicy.BEST_EFFORT, history=HistoryPolicy.KEEP_LAST, depth=1)
         self.subscription = self.create_subscription(CompressedImage, '/image_raw/compressed', self.image_callback, qos_policy)
-        self.publisher_ = self.create_publisher(CompressedImage, '/lane/image_annotated', qos_policy)
+        self.img_publisher_ = self.create_publisher(CompressedImage, '/lane/image_annotated', qos_policy)
+        self.driving_publisher_ = self.create_publisher(Float64, '/lane/center_offset', qos_policy)
 
         # Erstelle einmal das Lane-Objekt
         self.lane_obj = lane.Lane()
-
-
 
     def image_callback(self, msg: CompressedImage):
         current_params = {param_name: self.get_parameter(param_name).value
@@ -97,7 +97,15 @@ class LaneDetectionNode(Node):
         ret, buffer = cv2.imencode('.jpg', self.final_frame)
         if not ret: return
         out_msg = CompressedImage(header=msg.header, format="jpeg", data=buffer.tobytes())
-        self.publisher_.publish(out_msg)
+        self.img_publisher_.publish(out_msg)
+        
+        offset_msg = Float64()
+        if self.lane_obj.center_offset is not None:
+            offset_msg.data = float(self.lane_obj.center_offset)
+            self.driving_publisher_.publish(offset_msg) # Publish center offset to topic /lane/center_offset
+        else:
+            offset_msg.data = 0.0
+            self.driving_publisher_.publish(offset_msg)
 
 
 def main(args=None):

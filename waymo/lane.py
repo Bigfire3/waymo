@@ -105,12 +105,12 @@ class Lane:
         if self.left_fit is None or self.right_fit is None:
             return None
 
-        y_bottom = self.orig_frame.shape[0] - 30
+        y_bottom = self.orig_frame.shape[0] - 20
 
         # Berechne den aktuellen Mittelwert der Fahrspur am unteren Rand
         current_left_x = self.left_fit[0] * y_bottom**2 + self.left_fit[1] * y_bottom + self.left_fit[2]
         current_right_x = self.right_fit[0] * y_bottom**2 + self.right_fit[1] * y_bottom + self.right_fit[2]
-        self.current_center = ((current_left_x + current_right_x) / 2) * params.get('center_factor', 0.5)
+        self.current_center = ((current_left_x + current_right_x) / 2)
 
         # Glätte den Mittelwert
         #self.smoothed_center = self.smooth_lane_center(current_center, alpha=0.1)
@@ -118,7 +118,7 @@ class Lane:
         # Kamera als Bildmitte annehmen
         car_location = self.orig_frame.shape[1] / 2
 
-        center_offset = (abs(car_location) - abs(self.current_center))
+        center_offset = (abs(car_location) - abs(self.current_center)) * params.get('center_factor', 0.01)
 
         if print_to_terminal:
             print(f"Center Offset (smoothed): {center_offset} cm")
@@ -297,8 +297,8 @@ class Lane:
         #_, s_binary = edge.threshold(s_channel, (80, 255))
         s_binary = cv2.adaptiveThreshold(s_channel, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
                                             cv2.THRESH_BINARY,
-                                            params.get('block_size', 5),
-                                            params.get('c_value', 0))
+                                            params.get('block_size', 11),
+                                            params.get('c_value', 200))
         _, r_thresh = edge.threshold(frame[:, :, 2], thresh=(120, 255))
         rs_binary = cv2.bitwise_and(s_binary, r_thresh)
         self.lane_line_markings = cv2.bitwise_or(rs_binary, sxbinary.astype(np.uint8))

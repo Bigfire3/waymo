@@ -22,7 +22,7 @@ class GuiDebugNode(Node):
         self.image_msg_type = CompressedImage
         self.gui_window_name = 'Kamerabild Debug'
         # Initialisiere internen Status mit dem Startwert
-        self.current_robot_state = "STARTED"
+        self.current_robot_state = "WAYMO_STARTED"
 
         # --- Initialisierung ---
         self.bridge = CvBridge()

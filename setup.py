@@ -24,7 +24,7 @@ setup(
             'lane_detection_node = waymo.lane_detection_node:main',
             'gui_debug_node = waymo.gui_debug_node:main',
             'obstacle_detection_node = waymo.obstacle_detection_node:main',
-            'state_machine_node = waymo.state_machine_node:main',
+            'state_manager_node = waymo.state_manager_node:main',
         ],
     },
 )

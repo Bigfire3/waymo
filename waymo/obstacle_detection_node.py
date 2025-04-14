@@ -19,7 +19,7 @@ class Obstacle_Detection(rclpy.node.Node):
         # Variable for the last sensor reading
         self.closest_distance = float('inf')
         self.closest_angle = 0.0
-        self.curr_state = 'DEFAULT'
+        self.curr_state = 'WAYMO_STARTED'
 
         # QoS for subscriber
         qos_policy = rclpy.qos.QoSProfile(reliability=rclpy.qos.ReliabilityPolicy.BEST_EFFORT,
@@ -37,7 +37,7 @@ class Obstacle_Detection(rclpy.node.Node):
         # Publisher for current state
         self.publisher_ = self.create_publisher(String, 'obstacle', 1)
 
-        self.get_logger().info('Obstacle Detection Node started (dynamic parameters available)')
+        # self.get_logger().info('Obstacle Detection Node started (dynamic parameters available)')
 
         # Create a timer to periodically update / publish the current state
         timer_period = 0.2  # seconds
@@ -101,11 +101,11 @@ class Obstacle_Detection(rclpy.node.Node):
         msg.data = new_state
         # Publish the message
         self.curr_state = new_state
-        self.get_logger().info(f'publishing state: {new_state}')
+        # self.get_logger().info(f'publishing state: {new_state}')
         self.publisher_.publish(msg)
 
     def destroy_node(self):
-        self.get_logger().info("Destroying Obstacle Detection Node...")
+        # self.get_logger().info("Destroying Obstacle Detection Node...")
         super().destroy_node()
 
 
