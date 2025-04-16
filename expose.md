@@ -11,11 +11,11 @@
 | **Semester**         | `Sommersemester 2025`                                                |
 | **Hochschule:**      | `Technische Universität Berkakademie Freiberg`                       |
 | **Inhalte:**         | `Exposé Vortrag`                                                     |
-| **Link auf GitHub:** | https://github.com/Bigfire3/waymo/blob/documentation/expose.md       |
+| **Link auf GitHub:** | <https://github.com/Bigfire3/waymo/blob/documentation/expose.md>       |
 | **Autoren**          | Fabian Zänker, Lucas Adler, Simon Hörtzsch @author                   |
 
 - Gruppenmitglieder: Fabian Zänker, Lucas Adler, Simon Hörtzsch  
-- Studiengang: Robotik | Angwandte Informatik | Mathematik in Wirtschaft, Engineering und Informatik  
+- Studiengang: Robotik | Mathematik in Wirtschaft, Engineering und Informatik | Angwandte Informatik
 - Betreuer: Prof. Dr. Sebastian Zug, Gero Licht  
 - Datum: 23.04.2025
 
@@ -50,13 +50,13 @@ Roboter fährt voll automatisiert auf einer vorher nicht bekannten Fahrahn, ledi
 
 ## 3. Kernfunktionen & Implementierungsdetails
 
-* **Beispiel Funktion 1: Objekterkennung**
-  * Welcher Ansatz wird verfolgt (z.B. YOLO, PointPillars)?
-    * Wie wurden die Daten verarbeitet (Input/Output der Node)?
-    * Besondere Herausforderungen (z.B. Echtzeitfähigkeit, Genauigkeit).
-* **Beispiel Funktion 2: Pfadplanung**
-  * Verwendeter Algorithmus (z.B. A*, DWA).
-  * Integration mit dem Rest des Systems.
+- **Beispiel Funktion 1: Objekterkennung**
+  - Welcher Ansatz wird verfolgt (z.B. YOLO, PointPillars)?
+    - Wie wurden die Daten verarbeitet (Input/Output der Node)?
+    - Besondere Herausforderungen (z.B. Echtzeitfähigkeit, Genauigkeit).
+- **Beispiel Funktion 2: Pfadplanung**
+  - Verwendeter Algorithmus (z.B. A*, DWA).
+  - Integration mit dem Rest des Systems.
 
 ---
 
@@ -64,10 +64,10 @@ Roboter fährt voll automatisiert auf einer vorher nicht bekannten Fahrahn, ledi
 
 Zeige hier die Funktionsweise und Resultate.
 
-* Link zu einem Video oder Einbettung (falls von LiaScript unterstützt).
-* Screenshots aus Simulationen oder Visualisierungen (z.B. RViz2, Gazebo).
-* Metriken oder qualitative Bewertung der Ergebnisse.
-* Gegenüberstellung: Erwartetes vs. erreichtes Verhalten.
+- Link zu einem Video oder Einbettung (falls von LiaScript unterstützt).
+- Screenshots aus Simulationen oder Visualisierungen (z.B. RViz2, Gazebo).
+- Metriken oder qualitative Bewertung der Ergebnisse.
+- Gegenüberstellung: Erwartetes vs. erreichtes Verhalten.
 
 [Demo-Video auf YouTube](https://...)
 
@@ -77,12 +77,12 @@ Zeige hier die Funktionsweise und Resultate.
 
 Fasse zusammen und blicke nach vorne.
 
-* Wichtigste Erkenntnisse und erreichte Meilensteine des Projekts.
-* Limitationen und Herausforderungen.
-* Mögliche nächste Schritte:
-  * Verbesserungen (z.B. Performance, Robustheit).
-    * Erweiterungen (z.B. neue Sensoren, komplexere Szenarien).
-    * Integration mit anderer Software/Hardware.
+- Wichtigste Erkenntnisse und erreichte Meilensteine des Projekts.
+- Limitationen und Herausforderungen.
+- Mögliche nächste Schritte:
+  - Verbesserungen (z.B. Performance, Robustheit).
+    - Erweiterungen (z.B. neue Sensoren, komplexere Szenarien).
+    - Integration mit anderer Software/Hardware.
 
 **Vielen Dank für Ihre Aufmerksamkeit!**
 
