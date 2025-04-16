@@ -1,4 +1,5 @@
 import rclpy
+from std_msgs.msg import Bool
 from rclpy.node import Node
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
@@ -9,12 +10,18 @@ import numpy as np
 class TrafficLightDetection(Node):
     def __init__(self):
         super().__init__('traffic_light_detection_node')
-        self.subscriber = self.create_subscription(
-            Image, '/image_raw', self.image_callback, 1)
+        self.state = True
         self.bridge = CvBridge()
         self.get_logger().info('Traffic Light Detection Node started')
+        qos_policy = rclpy.qos.QoSProfile(reliability=rclpy.qos.ReliabilityPolicy.BEST_EFFORT,
+                                          history=rclpy.qos.HistoryPolicy.KEEP_LAST,
+                                          depth=1)
+        self.publisher_ = self.create_publisher(
+            Bool, 'traffic_light', qos_policy)
 
     def image_callback(self, msg):
+        self.get_logger().info('triggered image_callback inside traffic light node')
+
         try:
             frame = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
         except Exception as e:
@@ -49,17 +56,24 @@ class TrafficLightDetection(Node):
         green_count = cv2.countNonZero(green_mask)
 
         # Detection threshold (higher = less sensitive)
-        detection_threshold = 1000
-
+        detection_threshold = 100
         status = "None"
         if red_count > detection_threshold:
-            status = "RED"
+            status = "STOP"
+            curr_state = False
         elif yellow_count > detection_threshold:
-            status = "YELLOW"
+            status = "GO"
+            curr_state = True
         elif green_count > detection_threshold:
-            status = "GREEN"
-
-        self.get_logger().info(f"Traffic light detected: {status}")
+            status = "GO"
+            curr_state = True
+        if self.state != curr_state:
+            msg = Bool()
+            msg.data = curr_state
+            self.get_logger().info(f'traffic node: publishing: {curr_state}')
+            self.publisher_.publish(msg)
+            self.state = curr_state
+            self.get_logger().info(f"New Traffic light detected: {status}")
 
         # Display the image with the result
         try:

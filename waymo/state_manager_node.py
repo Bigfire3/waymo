@@ -17,7 +17,8 @@ class StateMachine(rclpy.node.Node):
         self.center_offset = 0.0
         self.driving_speed = 0.0
         self.angular_z = 0.0
-        self.state = 'WAYMO_STARTED'
+        self.state_obstacle = 'WAYMO_STARTED'
+        self.state_traffic_light = 'WAYMO_STARTED'
         qos_policy = rclpy.qos.QoSProfile(reliability=rclpy.qos.ReliabilityPolicy.BEST_EFFORT,
                                           history=rclpy.qos.HistoryPolicy.KEEP_LAST,
                                           depth=1)
@@ -25,24 +26,30 @@ class StateMachine(rclpy.node.Node):
             Bool, 'obstacle/blocked', self.obstacle_detection_callback, qos_profile=qos_policy)
         self.offset_subscription = self.create_subscription(
             Float64, 'lane/center_offset', self.lane_detection_callback, qos_profile=qos_policy)
-
+        self.traffic_light_subscription = self.create_subscription(
+            Bool, 'traffic_light', self.traffic_light_callback, qos_profile=qos_policy)
         self.state_publisher_ = self.create_publisher(String, 'robot/state', 1)
         self.twist_publisher_ = self.create_publisher(Twist, 'cmd_vel', 1)
-        # self.get_logger().info('State Machine Node started')
+        self.get_logger().info('State Machine Node started')
 
     def logic_function(self):
-        match self.state:
-            case 'WAYMO_STARTED':
+        match (self.state_obstacle, self.state_traffic_light):
+            case ('WAYMO_STARTED', 'WAYMO_STARTED'):
                 self.driving_speed = 0.0
                 self.angular_z = 0.0
                 self.send_cmd_vel(self.driving_speed, self.angular_z)
 
-            case 'STOPPED':
+            case ('STOPPED', _):
                 self.driving_speed = 0.0
                 self.angular_z = 0.0
                 self.send_cmd_vel(self.driving_speed, self.angular_z)
 
-            case 'FOLLOW_LANE':
+            case (_, 'STOPPED'):
+                self.driving_speed = 0.0
+                self.angular_z = 0.0
+                self.send_cmd_vel(self.driving_speed, self.angular_z)
+
+            case ('FOLLOW_LANE', 'FOLLOW_LANE'):
                 self.driving_speed = 0.15
                 self.angular_z = self.center_offset
                 self.send_cmd_vel(self.driving_speed, self.angular_z)
@@ -61,6 +68,16 @@ class StateMachine(rclpy.node.Node):
         self.center_offset = msg.data
         self.logic_function()
 
+    def traffic_light_callback(self, msg):
+        go = msg.data
+        self.get_logger().info(
+            f'traffic callback (statemachine) triggerd: {go}')
+        if (not go):
+            self.state_traffic_light = 'STOPPED'
+        else:
+            self.state_traffic_light = 'FOLLOW_LANE'
+        self.logic_function()
+
     def destroy_node(self):
         super().destroy_node()
 
@@ -68,7 +85,7 @@ class StateMachine(rclpy.node.Node):
         twist = Twist()
         twist.linear.x = linear_x
         twist.angular.z = angular_z
-        # self.twist_publisher_.publish(twist)
+        self.twist_publisher_.publish(twist)
         # self.get_logger().info(f'Sent cmd_vel: linear_x={linear_x}, angular_z={angular_z}')
 
 
