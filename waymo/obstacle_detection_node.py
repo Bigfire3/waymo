@@ -10,7 +10,7 @@ class Obstacle_Detection(rclpy.node.Node):
     def __init__(self):
         super().__init__('drive_with_scanner')
 
-        self.declare_parameter('distance_to_stop', 0.2)
+        self.declare_parameter('distance_to_stop', 0.25)
         # In radians, angle range -180° to +180° (LIDAR format)
         self.declare_parameter('angle_range_min', -(0.2) + math.pi)
         self.declare_parameter('angle_range_max', (0.2) + math.pi)
