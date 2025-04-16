@@ -21,8 +21,10 @@ class StateMachine(rclpy.node.Node):
         qos_policy = rclpy.qos.QoSProfile(reliability=rclpy.qos.ReliabilityPolicy.BEST_EFFORT,
                                           history=rclpy.qos.HistoryPolicy.KEEP_LAST,
                                           depth=1)
-        self.obstacle_subscription = self.create_subscription(Bool, 'obstacle/blocked', self.obstacle_detection_callback, qos_profile=qos_policy)
-        self.offset_subscription = self.create_subscription(Float64, 'lane/center_offset', self.lane_detection_callback, qos_profile=qos_policy)
+        self.obstacle_subscription = self.create_subscription(
+            Bool, 'obstacle/blocked', self.obstacle_detection_callback, qos_profile=qos_policy)
+        self.offset_subscription = self.create_subscription(
+            Float64, 'lane/center_offset', self.lane_detection_callback, qos_profile=qos_policy)
 
         self.state_publisher_ = self.create_publisher(String, 'robot/state', 1)
         self.twist_publisher_ = self.create_publisher(Twist, 'cmd_vel', 1)
@@ -44,7 +46,7 @@ class StateMachine(rclpy.node.Node):
                 self.driving_speed = 0.15
                 self.angular_z = self.center_offset
                 self.send_cmd_vel(self.driving_speed, self.angular_z)
-        
+
         self.state_publisher_.publish(String(data=self.state))
 
     def obstacle_detection_callback(self, msg):
@@ -53,7 +55,7 @@ class StateMachine(rclpy.node.Node):
             self.state = 'STOPPED'
         else:
             self.state = 'FOLLOW_LANE'
-        self.logic_function()     
+        self.logic_function()
 
     def lane_detection_callback(self, msg):
         self.center_offset = msg.data
@@ -61,13 +63,14 @@ class StateMachine(rclpy.node.Node):
 
     def destroy_node(self):
         super().destroy_node()
-    
+
     def send_cmd_vel(self, linear_x, angular_z):
         twist = Twist()
         twist.linear.x = linear_x
         twist.angular.z = angular_z
-        self.twist_publisher_.publish(twist)
-        #self.get_logger().info(f'Sent cmd_vel: linear_x={linear_x}, angular_z={angular_z}')
+        # self.twist_publisher_.publish(twist)
+        # self.get_logger().info(f'Sent cmd_vel: linear_x={linear_x}, angular_z={angular_z}')
+
 
 def main(args=None):
     rclpy.init(args=args)

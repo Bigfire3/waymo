@@ -12,6 +12,7 @@ class TrafficLightDetection(Node):
         self.subscriber = self.create_subscription(
             Image, '/image_raw', self.image_callback, 1)
         self.bridge = CvBridge()
+        self.get_logger().info('Traffic Light Detection Node started')
 
     def image_callback(self, msg):
         self.get_logger().info('image callback triggered')
