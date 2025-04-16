@@ -83,7 +83,7 @@ class Lane:
         self.histogram = None
 
         # Parameter für die Sliding-Window-Methode
-        self.no_of_windows = 7  # 10
+        self.no_of_windows = 10  # 10
         self.margin = int((1/8) * width)  # 1/12
         self.minpix = int((1/24) * width)
 
@@ -95,13 +95,11 @@ class Lane:
         if self.left_fit is None or self.right_fit is None:
             return None
 
-        y_bottom = self.orig_frame.shape[0] - 20
-
         # Berechne den aktuellen Mittelwert der Fahrspur am unteren Rand
-        current_left_x = self.left_fit[0] * y_bottom**2 + \
-            self.left_fit[1] * y_bottom + self.left_fit[2]
-        current_right_x = self.right_fit[0] * y_bottom**2 + \
-            self.right_fit[1] * y_bottom + self.right_fit[2]
+        current_left_x = self.left_fit[0] * self.y_bottom**2 + \
+            self.left_fit[1] * self.y_bottom + self.left_fit[2]
+        current_right_x = self.right_fit[0] * self.y_bottom**2 + \
+            self.right_fit[1] * self.y_bottom + self.right_fit[2]
         self.current_center = ((current_left_x + current_right_x) / 2)
 
         # Glätte den Mittelwert
@@ -110,8 +108,7 @@ class Lane:
         # Kamera als Bildmitte annehmen
         car_location = self.orig_frame.shape[1] / 2
 
-        center_offset = (abs(car_location) - abs(self.current_center)
-                         ) * params.get('center_factor', 0.01)
+        center_offset = (abs(car_location) - abs(self.current_center)) * params.get('center_factor')
 
         if print_to_terminal:
             print(f"Center Offset (smoothed): {center_offset} cm")
@@ -370,19 +367,20 @@ class Lane:
                                       (self.orig_frame.shape[1], self.orig_frame.shape[0]))
         result = cv2.addWeighted(self.orig_frame, 1, newwarp, 0.3, 0)
         # Berechne die Fahrspurmitte am unteren Rand und markiere diese mit einem roten Punkt
-        y_bottom = self.orig_frame.shape[0] - 1
+        self.y_bottom = self.orig_frame.shape[0] - 80
         if self.previous_bottom_left_x is not None and self.previous_bottom_right_x is not None:
             lane_center = int((self.previous_bottom_left_x +
                               self.previous_bottom_right_x) / 2)
         else:
-            current_left_x = self.left_fit[0]*y_bottom**2 + \
-                self.left_fit[1]*y_bottom + self.left_fit[2]
-            current_right_x = self.right_fit[0]*y_bottom**2 + \
-                self.right_fit[1]*y_bottom + self.right_fit[2]
+            current_left_x = self.left_fit[0]*self.y_bottom**2 + \
+                self.left_fit[1]*self.y_bottom + self.left_fit[2]
+            current_right_x = self.right_fit[0]*self.y_bottom**2 + \
+                self.right_fit[1]*self.y_bottom + self.right_fit[2]
             lane_center = int((current_left_x + current_right_x) / 2)
         if self.current_center is not None:
             cv2.circle(result, (int(self.current_center),
-                       y_bottom-20), 5, (0, 0, 255), -1)
+                       self.y_bottom), 5, (0, 0, 255), -1)
+        
         if plot:
             fig, (ax1, ax2) = plt.subplots(2, 1)
             fig.set_size_inches(10, 10)

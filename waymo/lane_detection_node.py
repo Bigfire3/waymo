@@ -30,9 +30,9 @@ class LaneDetectionNode(Node):
         # Thresholding
         # auto s_binary
         self.declare_parameter('block_size', 11, int_desc("Auto-S: block_size"))
-        self.declare_parameter('c_value', 30, int_desc("Auto-S: c_value"))
+        self.declare_parameter('c_value', 20, int_desc("Auto-S: c_value"))
 
-        self.declare_parameter('center_factor', 0.02, float_desc("Center_Calc: factor"))
+        self.declare_parameter('center_factor', 0.03, float_desc("Center_Calc: factor"))
         
         # line thickness filter
         self.declare_parameter(
@@ -96,8 +96,6 @@ class LaneDetectionNode(Node):
         self.lane_obj = lane.Lane()
 
     def image_callback(self, msg: CompressedImage):
-        max_thickness = self.get_parameter('max_thickness').value
-        min_thickness = self.get_parameter('min_thickness').value
         current_params = {param_name: self.get_parameter(param_name).value
                           for param_name in self._parameters}
 
@@ -124,10 +122,10 @@ class LaneDetectionNode(Node):
 
         if self.left_fit is not None and right_fit is not None:
             self.lane_obj.get_lane_line_previous_window(self.left_fit, right_fit, plot=False)
-            self.lane_obj.overlay_lane_lines(plot=False)
+            result = self.lane_obj.overlay_lane_lines(plot=False)
             self.lane_obj.calculate_curvature(print_to_terminal=False)
             self.lane_obj.calculate_car_position(print_to_terminal=False, **current_params)
-            self.final_frame = self.lane_obj.display_curvature_offset(plot=False)
+            self.final_frame = self.lane_obj.display_curvature_offset(frame=result, plot=False)
         else:
             self.final_frame = frame
 
