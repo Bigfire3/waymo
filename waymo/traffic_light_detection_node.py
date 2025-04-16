@@ -15,14 +15,12 @@ class TrafficLightDetection(Node):
         self.get_logger().info('Traffic Light Detection Node started')
 
     def image_callback(self, msg):
-        self.get_logger().info('image callback triggered')
         try:
             frame = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
         except Exception as e:
             self.get_logger().error(f"Could not convert image: {e}")
             return
 
-        self.get_logger().info(f"Frame shape: {frame.shape}")
         hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
         # HSV color ranges
