@@ -31,6 +31,10 @@ Roboter fährt voll automatisiert auf einer vorher nicht bekannten Fahrahn, ledi
 
 ---
 
+## 3. Projekt Organisation
+
+![Notion-Organisation](/Img/notion.png "Übersicht über Aufgaben und Fristen zum Robotik Projekt in Notion-Datenbank")
+
 ## 2. Systemarchitektur & Komponenten
 
 - Nodes:
