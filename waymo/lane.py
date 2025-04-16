@@ -83,7 +83,7 @@ class Lane:
         self.histogram = None
 
         # Parameter für die Sliding-Window-Methode
-        self.no_of_windows = 10  # 10
+        self.no_of_windows = 10
         self.margin = int((1/8) * width)  # 1/12
         self.minpix = int((1/24) * width)
 

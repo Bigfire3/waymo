@@ -32,7 +32,7 @@ class LaneDetectionNode(Node):
         self.declare_parameter('block_size', 11, int_desc("Auto-S: block_size"))
         self.declare_parameter('c_value', 20, int_desc("Auto-S: c_value"))
 
-        self.declare_parameter('center_factor', 0.025, float_desc("Center_Calc: factor"))
+        self.declare_parameter('center_factor', 0.03, float_desc("Center_Calc: factor"))
         
         # line thickness filter
         self.declare_parameter(
