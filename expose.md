@@ -4,10 +4,20 @@
 
 ## Exposé-Vortrag
 
-Gruppenmitglieder: Fabian Zänker, Lucas Adler, Simon Hörtzsch  
-Studiengang: Robotik | Angwandte Informatik | Mathematik in Wirtschaft, Engineering und Informatik  
-Betreuer: Prof. Dr. Sebastian Zug, Gero Licht  
-Datum: 23.04.2025
+<!-- data-type="none" -->
+| Parameter            |Kursinformationen                                                     |
+| -------------------- | -------------------------------------------------------------------- |
+| **Veranstaltung:**   | `Robotik Projekt`                                                    |
+| **Semester**         | `Sommersemester 2025`                                                |
+| **Hochschule:**      | `Technische Universität Berkakademie Freiberg`                       |
+| **Inhalte:**         | `Exposé Vortrag`                                                     |
+| **Link auf GitHub:** | https://github.com/Bigfire3/waymo/blob/documentation/expose.md       |
+| **Autoren**          | Fabian Zänker, Lucas Adler, Simon Hörtzsch @author                   |
+
+- Gruppenmitglieder: Fabian Zänker, Lucas Adler, Simon Hörtzsch  
+- Studiengang: Robotik | Angwandte Informatik | Mathematik in Wirtschaft, Engineering und Informatik  
+- Betreuer: Prof. Dr. Sebastian Zug, Gero Licht  
+- Datum: 23.04.2025
 
 ---
 
@@ -23,16 +33,18 @@ Roboter fährt voll automatisiert auf einer vorher nicht bekannten Fahrahn, ledi
 
 ## 2. Systemarchitektur & Komponenten
 
-* Nodes:
-  * gui_debug_node.py
-  * state_manager_node.py
-  * lane_detection_node.py
-  * obstacle_detection_node.py
-* Visualisierung der Node-Interaktionen (Nodes und Topics):  
-  ![Architektur](/Img/node_overview.png "Übersicht der ROS2-Nodes und Datenflüsse")
-* Wichtige externe Bibliotheken:
-  * OpenCV (für Auswertung und Debugging mit Kamerabildern)
-  *
+- Nodes:
+  - gui_debug_node.py
+  - state_manager_node.py
+  - lane_detection_node.py
+  - obstacle_detection_node.py
+- Visualisierung der Node-Interaktionen (Nodes und Topics):
+
+    ![Architektur](/Img/node_overview.png "Übersicht der ROS2-Nodes und Datenflüsse")
+
+- Wichtige externe Bibliotheken:
+  - OpenCV (für Auswertung und Debugging mit Kamerabildern)
+  -
 
 ---
 
