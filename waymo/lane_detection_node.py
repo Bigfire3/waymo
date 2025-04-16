@@ -23,7 +23,7 @@ class LaneDetectionNode(Node):
             type=ParameterType.PARAMETER_INTEGER, description=desc,
             integer_range=[IntegerRange(from_value=min_val, to_value=max_val, step=step)])
 
-        def float_desc(desc, min_val=0.0, max_val=1.0, step=0.01): return ParameterDescriptor(
+        def float_desc(desc, min_val=0.0, max_val=1.0, step=0.001): return ParameterDescriptor(
             type=ParameterType.PARAMETER_DOUBLE, description=desc,
             floating_point_range=[FloatingPointRange(from_value=min_val, to_value=max_val, step=step)])
 
@@ -32,7 +32,7 @@ class LaneDetectionNode(Node):
         self.declare_parameter('block_size', 11, int_desc("Auto-S: block_size"))
         self.declare_parameter('c_value', 20, int_desc("Auto-S: c_value"))
 
-        self.declare_parameter('center_factor', 0.03, float_desc("Center_Calc: factor"))
+        self.declare_parameter('center_factor', 0.025, float_desc("Center_Calc: factor"))
         
         # line thickness filter
         self.declare_parameter(
