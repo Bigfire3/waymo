@@ -12,15 +12,16 @@ class TrafficLightDetection(Node):
         super().__init__('traffic_light_detection_node')
         self.state = True
         self.bridge = CvBridge()
-        self.get_logger().info('Traffic Light Detection Node started')
+        self.get_logger().info('Traffic Light Detection Node started!!!!')
         qos_policy = rclpy.qos.QoSProfile(reliability=rclpy.qos.ReliabilityPolicy.BEST_EFFORT,
                                           history=rclpy.qos.HistoryPolicy.KEEP_LAST,
                                           depth=1)
         self.publisher_ = self.create_publisher(
             Bool, 'traffic_light', qos_policy)
+        self.img_subscriber = self.create_subscription(
+            Image, '/image_raw', self.image_callback, qos_profile=qos_policy)
 
     def image_callback(self, msg):
-        self.get_logger().info('triggered image_callback inside traffic light node')
 
         try:
             frame = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
@@ -70,18 +71,17 @@ class TrafficLightDetection(Node):
         if self.state != curr_state:
             msg = Bool()
             msg.data = curr_state
-            self.get_logger().info(f'traffic node: publishing: {curr_state}')
             self.publisher_.publish(msg)
             self.state = curr_state
-            self.get_logger().info(f"New Traffic light detected: {status}")
-
-        # Display the image with the result
+        '''
+        Display the image with the result
         try:
             display = frame.copy()
             cv2.imshow("Traffic Light Detection", display)
             cv2.waitKey(1)
         except Exception as e:
             self.get_logger().warn(f"Cannot display image: {e}")
+        '''
 
 
 def main(args=None):

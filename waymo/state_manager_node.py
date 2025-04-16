@@ -30,7 +30,7 @@ class StateMachine(rclpy.node.Node):
             Bool, 'traffic_light', self.traffic_light_callback, qos_profile=qos_policy)
         self.state_publisher_ = self.create_publisher(String, 'robot/state', 1)
         self.twist_publisher_ = self.create_publisher(Twist, 'cmd_vel', 1)
-        self.get_logger().info('State Machine Node started')
+        # self.get_logger().info('State Machine Node started')
 
     def logic_function(self):
         match (self.state_obstacle, self.state_traffic_light):
@@ -53,29 +53,33 @@ class StateMachine(rclpy.node.Node):
                 self.driving_speed = 0.15
                 self.angular_z = self.center_offset
                 self.send_cmd_vel(self.driving_speed, self.angular_z)
+            case _:
+                self.driving_speed = 0.15
+                self.angular_z = self.center_offset
+                self.send_cmd_vel(self.driving_speed, self.angular_z)
 
+        self.state = (self.state_obstacle + self.state_traffic_light)
         self.state_publisher_.publish(String(data=self.state))
 
     def obstacle_detection_callback(self, msg):
         blocked = msg.data
         if (blocked):
-            self.state = 'STOPPED'
+            self.state_obstacle = 'STOPPED'
         else:
-            self.state = 'FOLLOW_LANE'
+            self.state_obstacle = 'FOLLOW_LANE'
         self.logic_function()
 
     def lane_detection_callback(self, msg):
+        # self.get_logger().info('lane detection callback statemachine triggered')
         self.center_offset = msg.data
         self.logic_function()
 
     def traffic_light_callback(self, msg):
         go = msg.data
-        self.get_logger().info(
-            f'traffic callback (statemachine) triggerd: {go}')
-        if (not go):
-            self.state_traffic_light = 'STOPPED'
-        else:
+        if (go):
             self.state_traffic_light = 'FOLLOW_LANE'
+        else:
+            self.state_traffic_light = 'STOPPED'
         self.logic_function()
 
     def destroy_node(self):

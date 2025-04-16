@@ -33,7 +33,8 @@ class Obstacle_Detection(rclpy.node.Node):
         self.subscription
 
         # Publisher for current state
-        self.blocked_publisher_ = self.create_publisher(Bool, 'obstacle/blocked', qos_policy)
+        self.blocked_publisher_ = self.create_publisher(
+            Bool, 'obstacle/blocked', qos_policy)
 
         # Create a timer to periodically update / publish the current state
         timer_period = 0.2  # seconds
@@ -80,8 +81,9 @@ class Obstacle_Detection(rclpy.node.Node):
     # Logic for determining the current state
     def timer_callback(self):
         blocked = self.blocked
-        distance_stop = self.get_parameter('distance_to_stop').get_parameter_value().double_value
-        
+        distance_stop = self.get_parameter(
+            'distance_to_stop').get_parameter_value().double_value
+
         # If the closest object is too close, stop
         if self.closest_distance <= distance_stop:
             blocked = True
@@ -90,7 +92,7 @@ class Obstacle_Detection(rclpy.node.Node):
 
         if (self.blocked == blocked):
             return
-
+        self.blocked = blocked
         msg = Bool()
         msg.data = blocked
         self.blocked_publisher_.publish(msg)
