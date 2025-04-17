@@ -13,7 +13,7 @@
 | **Autoren**          | Fabian Zänker, Lucas Adler, Simon Hörtzsch @author                   |
 
 + Gruppenmitglieder: Fabian Zänker, Lucas Adler, Simon Hörtzsch  
-+ Studiengang: Robotik | Mathematik in Wirtschaft, Engineering und Informatik | Angwandte Informatik
++ Studiengang: Robotik | Mathematik in Wirtschaft, Engineering und Informatik | Angewandte Informatik
 + Betreuer: Prof. Dr. Sebastian Zug, Gero Licht  
 + Datum: 23.04.2025
 
@@ -37,41 +37,47 @@ Roboter fährt voll automatisiert auf einer vorher nicht bekannten Fahrbahn, led
 
 ## 2. Systemarchitektur & Komponenten
 
-+ **Nodes:**
-  - gui_debug_node.py
-  - state_manager_node.py
-  - lane_detection_node.py
-  - obstacle_detection_node.py
++ Nodes:
+  
+   - gui_debug_node.py
+   - state_manager_node.py
+   - lane_detection_node.py
+   - obstacle_detection_node.py
+
 + Visualisierung der Node-Interaktionen (Nodes und Topics):
 
     ![Architektur](../Img/node_overview.png "Übersicht der ROS2-Nodes und Datenflüsse, erstellt mit rqt_graph")
 
 + Wichtige externe Bibliotheken:
-  - OpenCV (für Auswertung und Debugging mit Kamerabildern)
-  - NumPy
-  - Matplotlib
+
+   - OpenCV (für Auswertung und Debugging mit Kamerabildern)
+   - NumPy
+   - Matplotlib
 
 ---
 
 ## 3. Kernfunktionen & Implementierungsdetails
 
 + **Fahrbahnerkennung:**
-  - Nutzung von ([Dokumentation und Guide zur Real-Time Lane Detection](https://automaticaddison.com/the-ultimate-guide-to-real-time-lane-detection-using-opencv/)) von Addison Sears-Collins
-  - Anpassung der Parameter und Ergänzung von Filtern für unser Szenario
-  - Herausforderungen: Reflexion von indirekten Lichtquellen
+
+   - Nutzung von [Dokumentation und Guide zur Real-Time Lane Detection](https://automaticaddison.com/the-ultimate-guide-to-real-time-lane-detection-using-opencv/) von Addison Sears-Collins
+   - Anpassung der Parameter und Ergänzung von Filtern für unser Szenario
+   - Herausforderungen: Reflexion von indirekten Lichtquellen
+
 + **Hinderniserkennung:**
-  - Nutzung der bereits implementieren Hinderniserkennung aus dem Wintersemester 2024/25
-  - Nutzung von Topic /obstacle/blocked, um Info zu haben, ob Fahrbahn frei ist oder Hindernis im Weg steht
+
+   - Nutzung der bereits implementieren Hinderniserkennung aus dem Wintersemester 2024/25
+   - Nutzung von Topic /obstacle/blocked, um Info zu haben, ob Fahrbahn frei ist oder Hindernis im Weg steht
+
 + **State Manager:**
-  - zentrale Verarbeitung der Topics, um die richtigen Fahrbefehle an den Roboter zu senden
+   - zentrale Verarbeitung der Topics, um die richtigen Fahrbefehle an den Roboter zu senden
 
 ---
 
 ## 4. Demonstration & Ergebnisse
 
 + Einfügen von Kamera Debug Bildern (verschiedene Fenster)
-
-  [Demo-Video auf YouTube](https://youtu.be/A94gt1JqILI)
++ [Demo-Video auf YouTube](https://youtu.be/A94gt1JqILI)
 
 ---
 
