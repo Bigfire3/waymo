@@ -1,4 +1,4 @@
-[![LiaScript](https://raw.githubusercontent.com/LiaScript/LiaScript/master/badges/course.svg)](https://liascript.github.io/course/?https://github.com/Bigfire3/waymo/blob/documentation/expose.md)
+[![LiaScript](https://raw.githubusercontent.com/LiaScript/LiaScript/master/badges/course.svg)](https://liascript.github.io/course/?https://github.com/Bigfire3/waymo/blob/documentation/presentation/expose.md)
 
 # Exposé-Vortrag: ROS2 Projekt "waymo"
 
@@ -71,7 +71,7 @@ Roboter fährt voll automatisiert auf einer vorher nicht bekannten Fahrbahn, led
 
 + Einfügen von Kamera Debug Bildern (verschiedene Fenster)
 
-[Demo-Video auf YouTube](https://youtu.be/A94gt1JqILI)
+  [Demo-Video auf YouTube](https://youtu.be/A94gt1JqILI)
 
 ---
 
