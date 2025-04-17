@@ -39,10 +39,10 @@ Roboter fährt voll automatisiert auf einer vorher nicht bekannten Fahrbahn, led
 
 + Nodes:
   
-   - [gui_debug_node.py]
-   - [state_manager_node.py]
-   - [lane_detection_node.py]
-   - [obstacle_detection_node.py]
+   - `gui_debug_node.py`
+   - `state_manager_node.py`
+   - `lane_detection_node.py`
+   - `obstacle_detection_node.py`
 
 + Visualisierung der Node-Interaktionen (Nodes und Topics):
 
