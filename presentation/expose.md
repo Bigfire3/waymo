@@ -70,6 +70,7 @@ Roboter fährt voll automatisiert auf einer vorher nicht bekannten Fahrbahn, led
    - Nutzung von Topic `/obstacle/blocked`, um Info zu haben, ob Fahrbahn frei ist oder Hindernis im Weg steht
 
 + **State Manager:**
+
    - zentrale Verarbeitung der Topics, um die richtigen Fahrbefehle an den Roboter zu senden
 
 ---
