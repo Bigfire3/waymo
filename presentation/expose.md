@@ -31,11 +31,11 @@ Roboter fährt voll automatisiert auf einer vorher nicht bekannten Fahrbahn, led
 
 ---
 
-## 3. Projekt Organisation
+## 2. Projekt Organisation
 
 ![Notion-Organisation](../Img/notion.png "Übersicht über Aufgaben und Fristen zum Robotik Projekt in Notion-Datenbank")
 
-## 2. Systemarchitektur & Komponenten
+## 3. Systemarchitektur & Komponenten
 
 + Nodes:
   
@@ -56,7 +56,7 @@ Roboter fährt voll automatisiert auf einer vorher nicht bekannten Fahrbahn, led
 
 ---
 
-## 3. Kernfunktionen & Implementierungsdetails
+## 4. Kernfunktionen & Implementierungsdetails
 
 + **Fahrbahnerkennung:**
 
@@ -75,14 +75,14 @@ Roboter fährt voll automatisiert auf einer vorher nicht bekannten Fahrbahn, led
 
 ---
 
-## 4. Demonstration & Ergebnisse
+## 5. Demonstration & Ergebnisse
 
 + Einfügen von Kamera Debug Bildern (verschiedene Fenster)
 + !?[Demo-Video auf YouTube](https://youtu.be/A94gt1JqILI)
 
 ---
 
-## 5. Ausblick
+## 6. Ausblick
 
 + bereits begonnen mit Aufgabe zur Erkennung des Ampelsignals
 + Verbesserung der Fahrbahnerkennung, um resistent gegen Reflexionen zu werden
