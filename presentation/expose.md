@@ -21,7 +21,7 @@
 
 ## 1. Einleitung & Motivation
 
-Entwicklung eines ros2-Packages, welches den Roboter auf Grundlage von bestimmten Fahrbahnszenarios steuert.
+Entwicklung eines ROS 2-Package, welches den Roboter auf Grundlage von bestimmten Fahrbahnszenarios steuert.
 
 **Hauptziel**
 
