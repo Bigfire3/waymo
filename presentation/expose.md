@@ -66,7 +66,7 @@ Roboter fährt voll automatisiert auf einer vorher nicht bekannten Fahrbahn, led
 
 + **Hinderniserkennung:**
 
-   - Nutzung der bereits implementieren Hinderniserkennung aus dem Wintersemester 2024/25
+   - Nutzung der bereits implementierten Hinderniserkennung aus dem Wintersemester 2024/25
    - Nutzung von Topic `/obstacle/blocked`, um Info zu haben, ob Fahrbahn frei ist oder Hindernis im Weg steht
 
 + **State Manager:**
