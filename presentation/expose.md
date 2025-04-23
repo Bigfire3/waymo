@@ -87,7 +87,7 @@ Roboter fährt voll automatisiert auf einer vorher nicht bekannten Fahrbahn, led
 
 + bereits begonnen mit Aufgabe zur Erkennung des Ampelsignals
 + Verbesserung der Fahrbahnerkennung, um resistent gegen Reflexionen zu werden
-+ Konzept für topics Node-Interaktion bereits in Arbeit :)
++ Konzept für topics Node-Interaktion bereits in Arbeit
 
 **Vielen Dank für Ihre Aufmerksamkeit!**
 
