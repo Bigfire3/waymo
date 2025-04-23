@@ -18,7 +18,7 @@ class Obstacle_Detection(rclpy.node.Node):
         # Variable for the last sensor reading
         self.closest_distance = float('inf')
         self.closest_angle = 0.0
-        self.blocked = None
+        self.blocked = True
 
         qos_policy = rclpy.qos.QoSProfile(reliability=rclpy.qos.ReliabilityPolicy.BEST_EFFORT,
                                           history=rclpy.qos.HistoryPolicy.KEEP_LAST,
@@ -80,21 +80,19 @@ class Obstacle_Detection(rclpy.node.Node):
 
     # Logic for determining the current state
     def timer_callback(self):
-        blocked = self.blocked
         distance_stop = self.get_parameter(
             'distance_to_stop').get_parameter_value().double_value
-
         # If the closest object is too close, stop
         if self.closest_distance <= distance_stop:
-            blocked = True
+            curr_blocked = True
         else:
-            blocked = False
+            curr_blocked = False
 
-        if (self.blocked == blocked):
+        if (self.blocked == curr_blocked):
             return
-        self.blocked = blocked
+        self.blocked = curr_blocked
         msg = Bool()
-        msg.data = blocked
+        msg.data = curr_blocked
         self.blocked_publisher_.publish(msg)
 
     def destroy_node(self):

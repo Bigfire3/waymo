@@ -4,13 +4,14 @@ from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 
 # Benötigte ROS-Nachrichtentypen und Tools
-from sensor_msgs.msg import CompressedImage # Für das Bild
+from sensor_msgs.msg import CompressedImage  # Für das Bild
 from std_msgs.msg import String             # Für die Statusnachrichten
 import cv2
 from cv_bridge import CvBridge, CvBridgeError
 import numpy as np
 import sys
 import traceback
+
 
 class GuiDebugNode(Node):
     def __init__(self):
@@ -50,8 +51,8 @@ class GuiDebugNode(Node):
         try:
             cv2.namedWindow(self.gui_window_name, cv2.WINDOW_AUTOSIZE)
             self.placeholder_img = self._create_placeholder_image()
-            cv2.imshow(self.gui_window_name, self.placeholder_img)
-            cv2.waitKey(1)
+            # cv2.imshow(self.gui_window_name, self.placeholder_img)
+            # cv2.waitKey(1)
             self.gui_enabled = True
         except cv2.error:
             self.placeholder_img = None
@@ -59,7 +60,6 @@ class GuiDebugNode(Node):
         # --- EINZIGE INITIALE Log-Ausgabe dieser Node ---
         self.get_logger().info(f"Robot Status: {self.current_robot_state}")
         # --- Ende der initialen Log-Ausgaben ---
-
 
     def _create_placeholder_image(self, width=640, height=480):
         """ Erstellt ein einfaches schwarzes Bild mit Text. """
@@ -70,16 +70,19 @@ class GuiDebugNode(Node):
         return img
 
     def image_callback(self, msg):
-        if not self.gui_enabled: return
+        if not self.gui_enabled:
+            return
         try:
             if self.image_msg_type == CompressedImage:
                 cv_image = self.bridge.compressed_imgmsg_to_cv2(msg, "bgr8")
             else:
                 cv_image = self.bridge.imgmsg_to_cv2(msg, "bgr8")
-            cv2.imshow(self.gui_window_name, cv_image)
-            cv2.waitKey(1)
-        except CvBridgeError: pass # Fehler still ignorieren
-        except Exception: pass    # Fehler still ignorieren
+            # cv2.imshow(self.gui_window_name, cv_image)
+            # cv2.waitKey(1)
+        except CvBridgeError:
+            pass  # Fehler still ignorieren
+        except Exception:
+            pass    # Fehler still ignorieren
 
     # --- Callback Funktion für Status (loggt nur bei Änderung) ---
     def state_callback(self, msg: String):
@@ -94,9 +97,12 @@ class GuiDebugNode(Node):
     def destroy_node(self):
         """ Ressourcen freigeben beim Beenden (ohne Logging). """
         if self.gui_enabled:
-             try: cv2.destroyAllWindows()
-             except Exception: pass
+            try:
+                cv2.destroyAllWindows()
+            except Exception:
+                pass
         super().destroy_node()
+
 
 def main(args=None):
     rclpy.init(args=args)
@@ -105,16 +111,17 @@ def main(args=None):
         gui_debug_node = GuiDebugNode()
         rclpy.spin(gui_debug_node)
     except KeyboardInterrupt:
-        pass # Kein Logging
+        pass  # Kein Logging
     except Exception as e:
-         # print(f"FATALER FEHLER in GuiDebugNode main: {e}", file=sys.stderr) # Auskommentiert
-         # traceback.print_exc() # Auskommentiert
-         pass
+        # print(f"FATALER FEHLER in GuiDebugNode main: {e}", file=sys.stderr) # Auskommentiert
+        # traceback.print_exc() # Auskommentiert
+        pass
     finally:
         if gui_debug_node and isinstance(gui_debug_node, Node) and rclpy.ok():
-             gui_debug_node.destroy_node()
+            gui_debug_node.destroy_node()
         if rclpy.ok():
             rclpy.shutdown()
+
 
 if __name__ == '__main__':
     main()

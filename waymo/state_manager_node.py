@@ -2,7 +2,6 @@ import rclpy
 import rclpy.node
 import numpy as np
 import time
-
 from std_msgs.msg import String, Float64, Bool
 from geometry_msgs.msg import Twist
 from sensor_msgs.msg import CompressedImage
@@ -33,8 +32,8 @@ class StateMachine(rclpy.node.Node):
         # self.get_logger().info('State Machine Node started')
 
     def logic_function(self):
-        self.get_logger().info(
-            f'traffic_state: {self.state_traffic_light}, obstacle_state: {self.state_obstacle}')
+        # self.get_logger().info(
+        # f'traffic_state: {self.state_traffic_light}, obstacle_state: {self.state_obstacle}')
         match (self.state_obstacle, self.state_traffic_light):
             case ('WAYMO_STARTED', 'WAYMO_STARTED'):
                 self.driving_speed = 0.0
@@ -91,8 +90,8 @@ class StateMachine(rclpy.node.Node):
         twist.linear.x = linear_x
         twist.angular.z = angular_z
         self.twist_publisher_.publish(twist)
-        self.get_logger().info(
-            f'Sent cmd_vel: linear_x={linear_x}, angular_z={angular_z}')
+        # self.get_logger().info(
+        # f'Sent cmd_vel: linear_x={linear_x}, angular_z={angular_z}')
 
 
 def main(args=None):
