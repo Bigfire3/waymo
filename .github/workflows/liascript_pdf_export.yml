@@ -50,8 +50,10 @@ jobs:
         run: |
           find presentation -name '*.md' | while read md_file; do
             base_name=$(basename "$md_file" .md)
-            pdf_output="presentation/${base_name}.pdf"
-            echo "Processing $md_file -> $pdf_output"
+            # ÄNDERUNG HIER: Entferne ".pdf" aus dem Output-Namen
+            pdf_output="presentation/${base_name}"
+            echo "Processing $md_file -> $pdf_output (exporter adds .pdf)" # Info angepasst
+            # Der Exporter sollte jetzt presentation/expose.pdf erstellen
             liascript-exporter -f pdf -o "$pdf_output" -i "$md_file"
           done
 
