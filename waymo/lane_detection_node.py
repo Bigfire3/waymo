@@ -29,11 +29,13 @@ class LaneDetectionNode(Node):
 
         # Thresholding
         # auto s_binary
-        self.declare_parameter('block_size', 11, int_desc("Auto-S: block_size"))
+        self.declare_parameter(
+            'block_size', 11, int_desc("Auto-S: block_size"))
         self.declare_parameter('c_value', 20, int_desc("Auto-S: c_value"))
 
-        self.declare_parameter('center_factor', 0.03, float_desc("Center_Calc: factor"))
-        
+        self.declare_parameter('center_factor', 0.03,
+                               float_desc("Center_Calc: factor"))
+
         # line thickness filter
         self.declare_parameter(
             'min_thickness', 2.5,
@@ -113,19 +115,25 @@ class LaneDetectionNode(Node):
         self.lane_obj.update_frame(frame, **current_params)
 
         # Führe alle Verarbeitungsschritte durch
-        self.lane_line_markings = self.lane_obj.get_line_markings(**current_params)
+        self.lane_line_markings = self.lane_obj.get_line_markings(
+            **current_params)
         self.lane_obj.plot_roi(plot=True)
         self.lane_obj.perspective_transform(plot=True)
-        self.lane_obj.filter_lane_markings_by_thickness(plot=False, **current_params)
+        self.lane_obj.filter_lane_markings_by_thickness(
+            plot=False, **current_params)
         self.histogram = self.lane_obj.calculate_histogram(plot=False)
-        self.left_fit, right_fit = self.lane_obj.get_lane_line_indices_sliding_windows(plot=True)
+        self.left_fit, right_fit = self.lane_obj.get_lane_line_indices_sliding_windows(
+            plot=True)
 
         if self.left_fit is not None and right_fit is not None:
-            self.lane_obj.get_lane_line_previous_window(self.left_fit, right_fit, plot=False)
+            self.lane_obj.get_lane_line_previous_window(
+                self.left_fit, right_fit, plot=False)
             result = self.lane_obj.overlay_lane_lines(plot=False)
             self.lane_obj.calculate_curvature(print_to_terminal=False)
-            self.lane_obj.calculate_car_position(print_to_terminal=False, **current_params)
-            self.final_frame = self.lane_obj.display_curvature_offset(frame=result, plot=False)
+            self.lane_obj.calculate_car_position(
+                print_to_terminal=False, **current_params)
+            self.final_frame = self.lane_obj.display_curvature_offset(
+                frame=result, plot=False)
         else:
             self.final_frame = frame
 

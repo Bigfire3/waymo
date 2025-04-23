@@ -31,6 +31,7 @@ def generate_launch_description():
             name='state_manager_node',
             output='screen'
         ),
+
         Node(
             package='waymo',
             executable='traffic_light_detection_node',

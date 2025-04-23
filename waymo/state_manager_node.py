@@ -33,6 +33,8 @@ class StateMachine(rclpy.node.Node):
         # self.get_logger().info('State Machine Node started')
 
     def logic_function(self):
+        self.get_logger().info(
+            f'traffic_state: {self.state_traffic_light}, obstacle_state: {self.state_obstacle}')
         match (self.state_obstacle, self.state_traffic_light):
             case ('WAYMO_STARTED', 'WAYMO_STARTED'):
                 self.driving_speed = 0.0
@@ -70,7 +72,6 @@ class StateMachine(rclpy.node.Node):
         self.logic_function()
 
     def lane_detection_callback(self, msg):
-        # self.get_logger().info('lane detection callback statemachine triggered')
         self.center_offset = msg.data
         self.logic_function()
 
@@ -90,7 +91,8 @@ class StateMachine(rclpy.node.Node):
         twist.linear.x = linear_x
         twist.angular.z = angular_z
         self.twist_publisher_.publish(twist)
-        # self.get_logger().info(f'Sent cmd_vel: linear_x={linear_x}, angular_z={angular_z}')
+        self.get_logger().info(
+            f'Sent cmd_vel: linear_x={linear_x}, angular_z={angular_z}')
 
 
 def main(args=None):
