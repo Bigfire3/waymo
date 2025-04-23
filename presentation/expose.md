@@ -77,7 +77,7 @@ Roboter fährt voll automatisiert auf einer vorher nicht bekannten Fahrbahn, led
 
 ## 5. Demonstration & Ergebnisse
 
-+ ![Debug-Bild Warped Image](../Img/debug_warped_image.png "Darstellung des Warped Images aus der `lane_detection_node.py`")
++ ![Debug-Bild Warped Image](../Img/debug_warped_image.png "Darstellung des Warped Images aus der `lane.py`")
 + ![Debug-Bild ROI Image](../Img/debug_roi_image.png "Darstellung der Region Of Interest, welche das Kamerabild einschränkt, welches zur Linienerkennung dient.")
 + !?[Demo-Video auf YouTube](https://youtu.be/TJ6XxX2W0BU)
 
