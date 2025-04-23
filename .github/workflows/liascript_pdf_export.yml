@@ -75,16 +75,14 @@ jobs:
             echo "No PDF changes to commit."
           fi
 
-      # Schritt 8: Änderungen pushen (nur wenn es einen neuen Commit gibt)
+      # Schritt 8: Änderungen pushen
       - name: Push PDF changes
         run: |
-          # Pushe nur, wenn im vorherigen Schritt ein Commit gemacht wurde
-          # (Prüfen, ob der lokale Branch dem Remote überlegen ist)
-          if git rev-parse HEAD != git rev-parse origin/documentation; then
-             git push origin documentation
-          else
-             echo "Nothing to push."
-          fi
+          # Versuche einfach zu pushen. Git meldet, wenn nichts zu tun ist.
+          # Der vorherige Schritt stellt sicher, dass nur gepusht wird, wenn ein Commit gemacht wurde
+          # (wobei wir hier sehen, dass kein Commit gemacht wurde -> Push wird nichts tun)
+          echo "Attempting to push changes if any were committed..."
+          git push origin documentation
 
       # --- Ende der neuen Schritte ---
 
