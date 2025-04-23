@@ -3,14 +3,14 @@
 # Exposé-Vortrag: ROS 2 Projekt "waymo"
 
 <!-- data-type="none" -->
-| Parameter            |Kursinformationen                                                     |
-| -------------------- | -------------------------------------------------------------------- |
-| **Veranstaltung:**   | `Robotik Projekt`                                                    |
-| **Semester**         | `Sommersemester 2025`                                                |
-| **Hochschule:**      | `Technische Universität Berkakademie Freiberg`                       |
-| **Inhalte:**         | `Exposé Vortrag`                                                     |
-| **Link auf GitHub:** | https://github.com/Bigfire3/waymo/blob/documentation/expose.md       |
-| **Autoren**          | Fabian Zänker, Lucas Adler, Simon Hörtzsch @author                   |
+| Parameter            |Kursinformationen                                                             |
+| -------------------- | -----------------------------------------------------------------------------|
+| **Veranstaltung:**   | `Robotik Projekt`                                                            |
+| **Semester**         | `Sommersemester 2025`                                                        |
+| **Hochschule:**      | `Technische Universität Berkakademie Freiberg`                               |
+| **Inhalte:**         | `Exposé Vortrag`                                                             |
+| **Link auf GitHub:** | https://github.com/Bigfire3/waymo/blob/documentation/presentation/expose.md  |
+| **Autoren**          | Fabian Zänker, Lucas Adler, Simon Hörtzsch @author                           |
 
 + Gruppenmitglieder: Fabian Zänker, Lucas Adler, Simon Hörtzsch  
 + Studiengang: Robotik | Mathematik in Wirtschaft, Engineering und Informatik | Angewandte Informatik
