@@ -70,24 +70,19 @@ jobs:
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
 
-      # Schritt 7: Änderungen hinzufügen und committen (nur wenn es Änderungen gibt)
-      - name: Commit PDF changes
+      # Schritt 7: Änderungen IMMER hinzufügen und committen
+      - name: Commit PDF changes (forced)
         run: |
-          echo "--- Checking for PDF changes with verbose diff: ---"
-          # Prüfen, ob sich PDF-Dateien geändert haben oder neu sind (OHNE --quiet)
-          # Wenn hier keine Ausgabe erfolgt, gibt es wirklich keine Änderungen.
-          git diff presentation/*.pdf
+          echo "--- Forcing add and commit for PDF files ---"
+          # Füge alle PDF-Dateien im presentation-Ordner zum Index hinzu
+          # (ignoriert, ob sie sich geändert haben oder nicht)
+          git add presentation/*.pdf
 
-          echo "--- End of verbose diff ---"
-
-          # Der eigentliche Check zum Fortfahren (wieder mit --quiet)
-          if ! git diff --quiet presentation/*.pdf; then
-            echo "PDF changes detected. Committing..."
-            git add presentation/*.pdf
-            git commit -m "Automated PDF generation from LiaScript" -m "[ci skip]"
-          else
-            echo "No PDF changes to commit."
-          fi
+          # Erstelle den Commit. Das wird auch gemacht, wenn 'git add' nichts Neues hinzugefügt hat,
+          # aber es schadet nicht, außer dass eventuell leere Commits entstehen könnten,
+          # wenn der Exporter die Datei *nicht* geändert/erstellt hat.
+          # Wir behalten [ci skip] bei, um sicherzustellen, dass dieser Commit den Workflow nicht erneut auslöst.
+          git commit -m "Automated PDF generation from LiaScript (forced)" -m "[ci skip]" || echo "No changes to commit or commit failed, continuing..."
 
       # Schritt 8: Änderungen pushen
       - name: Push PDF changes
