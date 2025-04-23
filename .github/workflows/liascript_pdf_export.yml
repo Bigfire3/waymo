@@ -1,34 +1,33 @@
 # .github/workflows/liascript_pdf_export.yml
 
-name: Generate LiaScript PDFs
+name: Generate and Commit LiaScript PDFs
 
-# Trigger: Workflow läuft nur bei Pushes auf den 'documentation' Branch
-# UND nur wenn sich Dateien im Ordner 'presentation/' geändert haben.
 on:
   push:
     branches:
       - documentation
     paths:
-      - 'presentation/**'
+      # Trigger NUR bei Änderungen an .md Dateien im presentation Ordner (und Unterordnern)
+      - 'presentation/**/*.md'
 
-# Erlaube dem Workflow, Artefakte hochzuladen
 permissions:
-  contents: read
-  actions: write # Notwendig für upload-artifact
+  # 'actions: write' für upload-artifact (falls du es behalten willst)
+  # 'contents: write' wird benötigt, um Commits zurück ins Repo zu pushen
+  actions: write
+  contents: write
 
 jobs:
-  build-pdfs: # Job-Name angepasst für Klarheit
-    # Runner: Verwende die neueste Ubuntu-Version
+  build-and-commit-pdfs: # Job-Name angepasst
     runs-on: ubuntu-latest
 
     steps:
-      # Schritt 1: Code auschecken (auf dem documentation Branch)
+      # Schritt 1: Code auschecken (vom documentation Branch)
       - name: Check out repository code
         uses: actions/checkout@v4
-        # Stellt sicher, dass der Code vom documentation Branch ausgecheckt wird
-        # Normalerweise automatisch durch den Trigger, aber explizit ist sicherer
         with:
           ref: documentation
+          # Wichtig: Token mit Schreibrechten auschecken für den späteren Push
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       # Schritt 2: Node.js einrichten
       - name: Set up Node.js
@@ -49,22 +48,50 @@ jobs:
       # Schritt 5: PDFs für alle .md Dateien im presentation Ordner erstellen
       - name: Run LiaScript Exporter for all Markdown files
         run: |
-          # Finde alle .md Dateien im presentation Ordner
           find presentation -name '*.md' | while read md_file; do
-            # Extrahiere den Dateinamen ohne Pfad und Endung
             base_name=$(basename "$md_file" .md)
-            # Definiere den Namen der Ausgabe-PDF (im selben Ordner)
             pdf_output="presentation/${base_name}.pdf"
-            # Gib zur Info aus, welche Datei gerade bearbeitet wird
             echo "Processing $md_file -> $pdf_output"
-            # Führe den Exporter für die aktuelle Datei aus
             liascript-exporter -f pdf -o "$pdf_output" -i "$md_file"
           done
 
-      # Schritt 6: Alle generierten PDFs als Artefakt hochladen
-      # Lädt alle .pdf Dateien aus dem presentation Ordner hoch
-      - name: Upload PDF artifacts
+      # --- NEUE SCHRITTE für Git Commit & Push ---
+
+      # Schritt 6: Git konfigurieren
+      - name: Configure Git
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+
+      # Schritt 7: Änderungen hinzufügen und committen (nur wenn es Änderungen gibt)
+      - name: Commit PDF changes
+        run: |
+          # Prüfen, ob sich PDF-Dateien geändert haben oder neu sind
+          if ! git diff --quiet presentation/*.pdf; then
+            echo "PDF changes detected. Committing..."
+            git add presentation/*.pdf
+            git commit -m "Automated PDF generation from LiaScript" -m "[ci skip]" # [ci skip] als zusätzliche Sicherheit gegen Loops
+          else
+            echo "No PDF changes to commit."
+          fi
+
+      # Schritt 8: Änderungen pushen (nur wenn es einen neuen Commit gibt)
+      - name: Push PDF changes
+        run: |
+          # Pushe nur, wenn im vorherigen Schritt ein Commit gemacht wurde
+          # (Prüfen, ob der lokale Branch dem Remote überlegen ist)
+          if git rev-parse HEAD != git rev-parse origin/documentation; then
+             git push origin documentation
+          else
+             echo "Nothing to push."
+          fi
+
+      # --- Ende der neuen Schritte ---
+
+      # Schritt 9 (Optional): Generierte PDFs weiterhin als Artefakt hochladen
+      # Kann nützlich sein für schnellen Zugriff oder als Backup
+      - name: Upload PDF artifacts (Optional)
         uses: actions/upload-artifact@v4
         with:
-          name: waymo-presentation-pdfs # Name des Artefakts (Plural)
-          path: presentation/*.pdf # Pfad zu den Dateien (Wildcard *)
+          name: waymo-presentation-pdfs
+          path: presentation/*.pdf
