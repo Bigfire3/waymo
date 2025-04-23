@@ -55,7 +55,12 @@ jobs:
             liascript-exporter -f pdf -o "$pdf_output" -i "$md_file"
           done
 
-      # --- NEUE SCHRITTE für Git Commit & Push ---
+      # --- DEBUGGING: Dateien nach Exporter auflisten ---
+      - name: List files in presentation folder after export
+        run: |
+          echo "--- Listing files in presentation after export: ---"
+          ls -l presentation/
+          echo "--- End of file listing ---"
 
       # Schritt 6: Git konfigurieren
       - name: Configure Git
@@ -66,11 +71,18 @@ jobs:
       # Schritt 7: Änderungen hinzufügen und committen (nur wenn es Änderungen gibt)
       - name: Commit PDF changes
         run: |
-          # Prüfen, ob sich PDF-Dateien geändert haben oder neu sind
+          echo "--- Checking for PDF changes with verbose diff: ---"
+          # Prüfen, ob sich PDF-Dateien geändert haben oder neu sind (OHNE --quiet)
+          # Wenn hier keine Ausgabe erfolgt, gibt es wirklich keine Änderungen.
+          git diff presentation/*.pdf
+
+          echo "--- End of verbose diff ---"
+
+          # Der eigentliche Check zum Fortfahren (wieder mit --quiet)
           if ! git diff --quiet presentation/*.pdf; then
             echo "PDF changes detected. Committing..."
             git add presentation/*.pdf
-            git commit -m "Automated PDF generation from LiaScript" -m "[ci skip]" # [ci skip] als zusätzliche Sicherheit gegen Loops
+            git commit -m "Automated PDF generation from LiaScript" -m "[ci skip]"
           else
             echo "No PDF changes to commit."
           fi
