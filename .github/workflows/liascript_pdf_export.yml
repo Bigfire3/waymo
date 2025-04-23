@@ -1,0 +1,71 @@
+# .github/workflows/liascript_pdf_export.yml
+
+name: Generate LiaScript PDFs
+
+# Trigger: Workflow läuft nur bei Pushes auf den 'documentation' Branch
+# UND nur wenn sich Dateien im Ordner 'presentation/' geändert haben.
+on:
+  push:
+    branches:
+      - documentation
+    paths:
+      - 'presentation/**'
+
+# Erlaube dem Workflow, Artefakte hochzuladen
+permissions:
+  contents: read
+  actions: write # Notwendig für upload-artifact
+
+jobs:
+  build-pdfs: # Job-Name angepasst für Klarheit
+    # Runner: Verwende die neueste Ubuntu-Version
+    runs-on: ubuntu-latest
+
+    steps:
+      # Schritt 1: Code auschecken (auf dem documentation Branch)
+      - name: Check out repository code
+        uses: actions/checkout@v4
+        # Stellt sicher, dass der Code vom documentation Branch ausgecheckt wird
+        # Normalerweise automatisch durch den Trigger, aber explizit ist sicherer
+        with:
+          ref: documentation
+
+      # Schritt 2: Node.js einrichten
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      # Schritt 3: Google Chrome installieren
+      - name: Install Google Chrome
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y google-chrome-stable
+
+      # Schritt 4: LiaScript Exporter installieren
+      - name: Install LiaScript Exporter
+        run: npm install -g @liascript/exporter
+
+      # Schritt 5: PDFs für alle .md Dateien im presentation Ordner erstellen
+      - name: Run LiaScript Exporter for all Markdown files
+        run: |
+          # Finde alle .md Dateien im presentation Ordner
+          find presentation -name '*.md' | while read md_file; do
+            # Extrahiere den Dateinamen ohne Pfad und Endung
+            base_name=$(basename "$md_file" .md)
+            # Definiere den Namen der Ausgabe-PDF (im selben Ordner)
+            pdf_output="presentation/${base_name}.pdf"
+            # Gib zur Info aus, welche Datei gerade bearbeitet wird
+            echo "Processing $md_file -> $pdf_output"
+            # Führe den Exporter für die aktuelle Datei aus
+            liascript-exporter -f pdf -o "$pdf_output" -i "$md_file"
+          done
+
+      # Schritt 6: Alle generierten PDFs als Artefakt hochladen
+      # Lädt alle .pdf Dateien aus dem presentation Ordner hoch
+      - name: Upload PDF artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: waymo-presentation-pdfs # Name des Artefakts (Plural)
+          path: presentation/*.pdf # Pfad zu den Dateien (Wildcard *)
