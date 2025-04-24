@@ -1,100 +1,94 @@
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Bool
-from sensor_msgs.msg import Image
-from cv_bridge import CvBridge
+from sensor_msgs.msg import CompressedImage
 import cv2
 import numpy as np
-import time
 
 
-class TrafficLightDetection(Node):
+class TrafficLightDetector(Node):
+
     def __init__(self):
-        super().__init__('traffic_light_detection_node')
-        self.state = True
-        self.bridge = CvBridge()
-        self.get_logger().info('Traffic Light Detection Node started!')
-
-        qos_policy = rclpy.qos.QoSProfile(
-            reliability=rclpy.qos.ReliabilityPolicy.BEST_EFFORT,
-            history=rclpy.qos.HistoryPolicy.KEEP_LAST,
-            depth=1
-        )
-
-        self.publisher_ = self.create_publisher(
-            Bool, 'traffic_light', qos_policy)
-
-        self.img_subscriber = self.create_subscription(
-            Image,
-            '/image_raw',
+        super().__init__('traffic_light_detector')
+        self.subscription = self.create_subscription(
+            CompressedImage,
+            '/image_raw/compressed',
             self.image_callback,
-            qos_profile=qos_policy
-        )
+            10)
+        self.publisher_ = self.create_publisher(Bool, 'traffic_light', 10)
+        self.previous_state = None  # Track previous Bool (True/False)
+        self.spotted_once = False
 
     def image_callback(self, msg):
-        try:
-            frame = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
-        except Exception as e:
-            self.get_logger().error(f"Could not convert image: {e}")
-            return
+        np_arr = np.frombuffer(msg.data, np.uint8)
+        frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
 
-        # Optional: downscale to reduce processing cost
-        frame = cv2.resize(frame, (640, 480))
+        is_red_light, debug_frame = self.detect_red_light(frame)
 
+        current_bool = not is_red_light  # Send True if NOT red
+        if current_bool != self.previous_state:
+            if (self.spotted_once is False and current_bool is False):
+                self.spotted_once = True
+            self.publisher_.publish(Bool(data=current_bool))
+            self.get_logger().info(
+                f"Traffic light is {'RED' if is_red_light else 'NOT RED'}")
+            self.previous_state = current_bool
+            # if (self.spotted_once is True and current_bool is True):
+            # self.destroy_node()
+        cv2.imshow('Traffic Light Debug View', debug_frame)
+        cv2.waitKey(1)
+
+    def detect_red_light(self, frame):
         hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
-        red_lower1 = np.array([0, 120, 70])
-        red_upper1 = np.array([10, 255, 255])
-        red_lower2 = np.array([170, 120, 70])
-        red_upper2 = np.array([180, 255, 255])
+        # Red in HSV is split at hue=0 and hue=180
+        lower_red1 = (0, 100, 100)
+        upper_red1 = (10, 255, 255)
+        lower_red2 = (160, 100, 100)
+        upper_red2 = (179, 255, 255)
 
-        yellow_lower = np.array([15, 100, 100])
-        yellow_upper = np.array([35, 255, 255])
+        mask1 = cv2.inRange(hsv, lower_red1, upper_red1)
+        mask2 = cv2.inRange(hsv, lower_red2, upper_red2)
+        red_mask = mask1 | mask2
 
-        green_lower = np.array([36, 50, 70])
-        green_upper = np.array([89, 255, 255])
+        h, w, _ = frame.shape
+        roi_x1, roi_y1 = int(w * 0.05), int(h * 0.3)
+        roi_x2, roi_y2 = int(w * 0.95), int(h)
 
-        red_mask = cv2.bitwise_or(
-            cv2.inRange(hsv, red_lower1, red_upper1),
-            cv2.inRange(hsv, red_lower2, red_upper2)
-        )
-        yellow_mask = cv2.inRange(hsv, yellow_lower, yellow_upper)
-        green_mask = cv2.inRange(hsv, green_lower, green_upper)
+        debug_frame = frame.copy()
+        cv2.rectangle(debug_frame, (roi_x1, roi_y1),
+                      (roi_x2, roi_y2), (255, 255, 255), 2)
 
-        red_count = cv2.countNonZero(red_mask)
-        yellow_count = cv2.countNonZero(yellow_mask)
-        green_count = cv2.countNonZero(green_mask)
+        roi_mask = red_mask[roi_y1:roi_y2, roi_x1:roi_x2]
+        contours, _ = cv2.findContours(
+            roi_mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
-        detection_threshold = 100
-        curr_state = self.state  # fallback to previous
+        for cnt in contours:
+            area = cv2.contourArea(cnt)
+            if area > 100:
+                cnt_shifted = cnt + [roi_x1, roi_y1]
+                cv2.drawContours(
+                    debug_frame, [cnt_shifted], -1, (0, 0, 255), 2)
+                cv2.putText(debug_frame, 'RED LIGHT',
+                            (roi_x1, roi_y1 - 10), cv2.FONT_HERSHEY_SIMPLEX,
+                            0.7, (0, 0, 255), 2)
+                return True, debug_frame
 
-        if red_count > detection_threshold:
-            curr_state = False
-        elif yellow_count > detection_threshold:
-            curr_state = True
-        elif green_count > detection_threshold:
-            curr_state = True
-
-        if self.state != curr_state:
-            self.get_logger().info(
-                f'Traffic light changed: {curr_state}')
-            msg = Bool()
-            msg.data = curr_state
-            self.publisher_.publish(msg)
-            self.state = curr_state
+        return False, debug_frame
 
 
 def main(args=None):
     rclpy.init(args=args)
-    node = TrafficLightDetection()
+    node = TrafficLightDetector()
+
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
         pass
     finally:
         node.destroy_node()
-        cv2.destroyAllWindows()
         rclpy.shutdown()
+        cv2.destroyAllWindows()
 
 
 if __name__ == '__main__':

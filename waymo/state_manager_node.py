@@ -75,12 +75,13 @@ class StateMachine(rclpy.node.Node):
         self.logic_function()
 
     def traffic_light_callback(self, msg):
+        # self.get_logger().info('traffic light callback inside logic function triggered')
         go = msg.data
         if (go):
             self.state_traffic_light = 'FOLLOW_LANE'
         else:
             self.state_traffic_light = 'STOPPED'
-        self.logic_function()
+        # self.logic_function()
 
     def destroy_node(self):
         super().destroy_node()
