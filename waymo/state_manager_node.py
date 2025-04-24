@@ -43,7 +43,7 @@ class StateMachine(rclpy.node.Node):
             case 'FOLLOW_LANE':
                 self.driving_speed = 0.15
                 self.angular_z = self.center_offset
-                self.send_cmd_vel(self.driving_speed, self.angular_z)
+                #self.send_cmd_vel(self.driving_speed, self.angular_z)
         
         self.state_publisher_.publish(String(data=self.state))
 

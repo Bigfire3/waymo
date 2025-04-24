@@ -31,4 +31,11 @@ def generate_launch_description():
             name='lane_detection_node',
             output='screen'
         ),
+
+        Node(
+            package='waymo',
+            executable='sign_detection_node',
+            name='sign_detection_node',
+            output='screen'
+        ),
     ])

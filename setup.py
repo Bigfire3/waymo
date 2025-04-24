@@ -25,6 +25,7 @@ setup(
             'gui_debug_node = waymo.gui_debug_node:main',
             'obstacle_detection_node = waymo.obstacle_detection_node:main',
             'state_manager_node = waymo.state_manager_node:main',
+            'sign_detection_node = waymo.sign_detection_node:main',
         ],
     },
 )
