@@ -1,1 +1,316 @@
-## Robotik Projekt Sommersemester 2025: Team Waymo
+## Robotics Project Summer Semester 2025: Team Waymo
+
+**Project Milestones:**
+
+1. **[Done]** Basic Lane Following & Obstacle Reaction
+    * Follow detected lane lines.
+    * React to frontal obstacles (stop).
+2. **[WORK IN PROGRESS]** Traffic Light Reaction
+    * Detect traffic light states (Red/Green).
+    * Stop at red lights, proceed at green lights.
+3. **[Done]** Obstacle Passing & Lateral Obstacle Handling
+    * Pass stationary obstacles detected on the current lane by switching to the adjacent lane.
+    * Ignore obstacles detected far off to the side of the road (handled implicitly by detection ranges).
+4. **[WORK IN PROGRESS]** Parking Maneuver
+    * Recognize a designated parking sign.
+    * Execute an automated parking maneuver (e.g., parallel parking).
+    * Execute an automated maneuver to leave the parking spot.
+5. **[WORK IN PROGRESS]** Robust Lane Following
+    * Handle faded, incorrect, or missing lane markings.
+6. **[WORK IN PROGRESS]** Intersection Handling
+    * Detect intersections.
+    * Execute turns (e.g., based on predefined route or commands).
+
+# Task: Lane Following, Obstacle Detection, and Passing
+
+This repository contains ROS2 nodes in Python for basic lane following, frontal obstacle detection, and automated obstacle passing maneuvers, inspired by autonomous driving functions. The package is designed for ROS2 Humble.
+
+---
+
+## Node Descriptions
+
+This package consists of several ROS2 nodes that work together:
+
+### `lane_detection_node` ([View Code](/waymo/lane_detection_node.py))
+
+* **Functionality:**
+    * Subscribes to raw image data (`/image_raw/compressed`).
+    * Uses OpenCV for image processing to detect lane lines (`lane.py`, `edge_detection.py`).
+    * Applies perspective transformation for a top-down view.
+    * Filters lines based on thickness.
+    * Calculates the robot's lateral offset from the lane center.
+    * Publishes annotated image (`/lane/image_annotated`).
+    * Publishes calculated center offset (`/lane/center_offset` - `std_msgs/Float64`).
+* **Dependencies:** OpenCV, NumPy, cv_bridge.
+
+### `obstacle_detection_node` ([View Code](/waymo/obstacle_detection_node.py))
+
+* **Functionality:**
+    * Subscribes to laser scan data (`/scan` - `sensor_msgs/LaserScan`).
+    * Checks distance measurements in a frontal angular range.
+    * Detects if an obstacle is closer than `distance_to_stop`.
+    * Publishes obstacle status (`/obstacle/blocked` - `std_msgs/Bool`).
+* **Dependencies:** -
+
+### `state_manager_node` ([View Code](/waymo/state_manager_node.py))
+
+* **Functionality:**
+    * Acts as the main state machine (`WAYMO_STARTED`, `STOPPED`, `FOLLOW_LANE`, `PASSING_OBSTACLE`).
+    * Subscribes to obstacle status (`/obstacle/blocked`), lane offset (`/lane/center_offset`), and obstacle passed signal (`/obstacle/passed`).
+    * Determines the robot's current operational state.
+    * Publishes the current state (`/robot/state` - `std_msgs/String`).
+    * Sends velocity commands (`/cmd_vel` - `geometry_msgs/Twist`) based on state and lane offset (using P-control via a fixed-rate timer for smoothness).
+    * Relinquishes control of `/cmd_vel` during the `PASSING_OBSTACLE` state.
+* **Dependencies:** NumPy.
+
+### `passing_obstacle_node` ([View Code](/waymo/passing_obstacle_node.py))
+
+* **Functionality:**
+    * Handles the automated obstacle passing maneuver.
+    * Activated by `state_manager_node` when state becomes `PASSING_OBSTACLE`.
+    * Takes exclusive control of `/cmd_vel` during the maneuver.
+    * Subscribes to odometry (`/odom`) for orientation (yaw).
+    * Subscribes to laser scan (`/scan`) to check if the side is clear of the obstacle.
+    * Subscribes to lane offset (`/lane/center_offset`) to perform lane following on the adjacent lane during the pass.
+    * Executes a multi-step sequence: 90° turn left, move sideways (following adjacent lane), 90° turn right, drive straight (following adjacent lane) until the side scan indicates the obstacle is passed, 90° turn right, move sideways back to original lane (following lane), 90° turn left.
+    * Uses internal constants for maneuver parameters (turn angles, sideways distance, side scan angles, clear distance threshold).
+    * Publishes a signal upon completion (`/obstacle/passed` - `std_msgs/Bool`) to notify `state_manager_node`.
+* **Dependencies:** NumPy, SciPy (for quaternion conversion).
+
+### `gui_debug_node` ([View Code](/waymo/gui_debug_node.py))
+
+* **Functionality:**
+    * Subscribes to annotated image (`/lane/image_annotated`) and robot state (`/robot/state`).
+    * Displays the annotated camera image in an OpenCV window.
+    * Prints changes in the robot's state (including `PASSING_OBSTACLE`) to the console.
+    * Primarily serves for debugging and visualization.
+* **Dependencies:** OpenCV, cv_bridge.
+
+### `keyboard_handler_node`([View Code](/waymo/keyboard_handler_node.py))
+
+* **Functionality:**
+    * Listens for keyboard input in its terminal (requires interactive TTY).
+    * Detects the 's' key press.
+    * Publishes a `"toggle_pause"` message (`std_msgs/String`, Reliable QoS) on the `/keyboard_command` topic.
+    * Used to remotely toggle pause/resume for the `state_manager_node`.
+    * Restores terminal settings on exit.
+
+* **Usage:**
+    * **Important:** Must be run manually in a **separate, interactive terminal**
+    * In the new terminal, source your workspace: `source install/setup.bash` (or `.zsh`).
+    * Run the node: `ros2 run waymo keyboard_handler_node`
+    * Ensure the terminal running the node has keyboard focus.
+    * Press `s` to toggle the pause state (`MANUAL_PAUSE` <-> `FOLLOW_LANE`).
+    * Press `Ctrl+C` in the handler's terminal to stop it cleanly.
+
+---
+
+## Parameters & Key Constants
+
+Nodes can be configured via ROS2 parameters or internal constants:
+
+### `lane_detection_node`
+
+* See code for detailed parameter descriptions (`block_size`, `c_value`, `min_thickness`, `max_thickness`, `center_factor`, ROI parameters).
+* `center_factor`: Crucial for scaling the lane offset into a steering command (Default: `0.03`). Tuning this affects lane following smoothness and ability to take curves.
+
+### `obstacle_detection_node`
+
+* `distance_to_stop`: Minimum frontal distance to trigger stop (Default: `0.25` m).
+* `angle_range_min`/`max`: Defines the frontal detection cone (Defaults correspond to approx. +/- 11.5°).
+
+### `state_manager_node`
+
+* `drivingspeed`: Base driving speed during `FOLLOW_LANE` (Default: `0.15` m/s).
+* `control_loop_period`: timer to smooth the driving during `FOLLOW_LANE` (Default: 200 Hz)
+
+### `passing_obstacle_node`
+
+* Uses internal constants defined at the top of the file:
+    * `LINEAR_SPEED`, `ANGULAR_SPEED`: Speeds during the maneuver.
+    * `SIDEWAYS_DISTANCE`: Target lateral distance for lane change.
+    * `SIDE_SCAN_ANGLE_MIN_DEG`, `SIDE_SCAN_ANGLE_MAX_DEG`: Angular range for checking if the obstacle is passed (Note: Current values might reflect left side based on user testing environment).
+    * `SIDE_SCAN_CLEAR_DISTANCE`: Distance threshold to consider the side clear.
+    * `WAIT_DURATION_BEFORE_CHECK`: Pause duration before starting the side check.
+
+---
+
+## Usage
+
+### Prerequisites / Installation
+
+1. **ROS2 Humble:** Ensure ROS2 Humble is installed.
+    * [Ubuntu Installation Guide](https://docs.ros.org/en/humble/Installation/Ubuntu-Install-Debs.html)
+
+2. **Colcon:** Install the build tool Colcon.
+
+    ```bash
+    sudo apt update
+    sudo apt install python3-colcon-common-extensions
+    ```
+
+3. **Python Dependencies:** OpenCV, cv_bridge, NumPy, SciPy.
+    * Install via ROS packages if possible:
+
+        ```bash
+        sudo apt update
+        sudo apt install ros-humble-cv-bridge python3-opencv python3-scipy python3-numpy
+        ```
+
+    * Alternatively, use pip within your environment (e.g., Conda): `pip install numpy scipy opencv-python` (cv_bridge usually comes with ROS).
+
+### Workspace Setup
+
+1. Create a ROS2 workspace (if not already done):
+
+    ```bash
+    mkdir -p ~/ros2_ws/src
+    cd ~/ros2_ws/src
+    ```
+
+2. Clone the waymo package from GitHub into your src folder:
+    * with ssh:
+
+        ```bash
+        git clone git@github.com:Bigfire3/waymo.git
+        ```
+
+    * with https:
+
+        ```bash
+        git clone https://github.com/Bigfire3/waymo.git
+        ```
+
+3. **Build the package:**
+
+    ```bash
+    cd ~/ros2_ws
+    colcon build --packages-select waymo
+    ```
+
+4. **Source the workspace:**
+
+    ```bash
+    source ~/ros2_ws/install/setup.bash
+    ```
+
+    *`Add this command to your .bashrc (or .zshrc) to avoid running it manually every time.`*
+
+### Running the Package
+
+The nodes can be most easily started together using the provided launch file:
+
+1. **Source the workspace** (if not already done):
+
+    ```bash
+    source ~/ros2_ws/install/setup.bash
+    ```
+
+2. **Start the launch file:**
+
+    ```bash
+    ros2 launch waymo waymo_launch.py
+    ```
+
+    This will start `lane_detection_node`, `obstacle_detection_node`, `state_manager_node`, and `gui_debug_node`.
+
+#### Alternative: Shell Script
+
+The package also includes several scripts that automate the build process (only for `waymo`) and launching.
+There is a script for bash, zsh and a conda environment.
+
+Here are the steps for bash:
+
+1. Ensure the script is executable:
+
+    ```bash
+    cd ~/ros2_ws/src/waymo
+    chmod +x run_waymo_bash.sh
+    ```
+
+2. Run the script:
+
+    ```bash
+    ./run_waymo_bash.sh
+    ```
+
+    *`(Paths in the script might need adjustment, e.g., the path to the workspace cd ~/ros2_ws and the source command)`*
+
+### Modifying Parameters
+
+Parameters can be changed at runtime via the ROS2 CLI. Open a new terminal (and source the workspace again: `source ~/ros2_ws/install/setup.bash`).
+
+**Examples:**
+
+* Change the stopping distance for obstacles:
+
+    ```bash
+    ros2 param set /obstacle_detection_node distance_to_stop 0.3
+    ```
+
+* Adjust the thresholding parameter for lane detection:
+
+    ```bash
+    ros2 param set /lane_detection_node c_value 25
+    ```
+
+* Change the base driving speed:
+
+    ```bash
+    ros2 param set /state_manager_node drivingspeed 0.1
+    ```
+
+* Adjust the ROI for lane detection:
+
+    ```bash
+    ros2 param set /lane_detection_node roi_top_left_h 0.6
+    ```
+
+### Testing Functionality / Monitoring Topics
+
+Open new terminals (and source the workspace) to check the functionality:
+
+1. **`Display motion commands (/cmd_vel):`**
+
+    ```bash
+    ros2 topic echo /cmd_vel
+    ```
+
+    *`Shows the velocity commands sent by state_manager_node.`*
+
+2. **`Display robot state (/robot/state):`**
+
+    ```bash
+    ros2 topic echo /robot/state
+    ```
+
+    *`Shows the current state (WAYMO_STARTED, STOPPED, FOLLOW_LANE).`*
+
+3. **`Display obstacle status (/obstacle/blocked):`**
+
+    ```bash
+    ros2 topic echo /obstacle/blocked
+    ```
+
+    *`Shows true or false, depending on whether an obstacle was detected.`*
+
+4. **`Display lane offset (/lane/center_offset):`**
+
+    ```bash
+    ros2 topic echo /lane/center_offset
+    ```
+
+    *Shows the calculated lateral offset from the lane center.*
+
+5. **Annotated Image (GUI):**
+    * If `gui_debug_node` is running and the GUI libraries are functioning correctly, a window named `Kamerabild Debug` should appear, showing the processed camera image.
+
+6. **Visualize Node Graph:**
+
+    ```bash
+    rqt_graph
+    ```
+
+    *`Shows how the nodes are connected and which topics they use (requires rqt).`*
+
+---
