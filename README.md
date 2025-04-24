@@ -31,7 +31,7 @@ This repository contains ROS2 nodes in Python for basic lane following, frontal 
 
 This package consists of several ROS2 nodes that work together:
 
-### `lane_detection_node` ([View Code](https://github.com/Bigfire3/waymo/blob/development/waymo/lane_detection_node.py))
+### `lane_detection_node` ([View Code](/waymo/lane_detection_node.py))
 
 * **Functionality:**
     * Subscribes to raw image data (`/image_raw/compressed`).
@@ -43,7 +43,7 @@ This package consists of several ROS2 nodes that work together:
     * Publishes calculated center offset (`/lane/center_offset` - `std_msgs/Float64`).
 * **Dependencies:** OpenCV, NumPy, cv_bridge.
 
-### `obstacle_detection_node` ([View Code](https://github.com/Bigfire3/waymo/blob/development/waymo/obstacle_detection_node.py))
+### `obstacle_detection_node` ([View Code](/waymo/obstacle_detection_node.py))
 
 * **Functionality:**
     * Subscribes to laser scan data (`/scan` - `sensor_msgs/LaserScan`).
@@ -52,7 +52,7 @@ This package consists of several ROS2 nodes that work together:
     * Publishes obstacle status (`/obstacle/blocked` - `std_msgs/Bool`).
 * **Dependencies:** -
 
-### `state_manager_node` ([View Code](https://github.com/Bigfire3/waymo/blob/development/waymo/state_manager_node.py))
+### `state_manager_node` ([View Code](/waymo/state_manager_node.py))
 
 * **Functionality:**
     * Acts as the main state machine (`WAYMO_STARTED`, `STOPPED`, `FOLLOW_LANE`, `PASSING_OBSTACLE`).
@@ -63,7 +63,7 @@ This package consists of several ROS2 nodes that work together:
     * Relinquishes control of `/cmd_vel` during the `PASSING_OBSTACLE` state.
 * **Dependencies:** NumPy.
 
-### `passing_obstacle_node` ([View Code](https://github.com/Bigfire3/waymo/blob/development/waymo/passing_obstacle_node.py))
+### `passing_obstacle_node` ([View Code](/waymo/passing_obstacle_node.py))
 
 * **Functionality:**
     * Handles the automated obstacle passing maneuver.
@@ -77,7 +77,7 @@ This package consists of several ROS2 nodes that work together:
     * Publishes a signal upon completion (`/obstacle/passed` - `std_msgs/Bool`) to notify `state_manager_node`.
 * **Dependencies:** NumPy, SciPy (for quaternion conversion).
 
-### `gui_debug_node` ([View Code](https://github.com/Bigfire3/waymo/blob/development/waymo/gui_debug_node.py))
+### `gui_debug_node` ([View Code](/waymo/gui_debug_node.py))
 
 * **Functionality:**
     * Subscribes to annotated image (`/lane/image_annotated`) and robot state (`/robot/state`).
@@ -85,6 +85,23 @@ This package consists of several ROS2 nodes that work together:
     * Prints changes in the robot's state (including `PASSING_OBSTACLE`) to the console.
     * Primarily serves for debugging and visualization.
 * **Dependencies:** OpenCV, cv_bridge.
+
+### `keyboard_handler_node`([View Code](/waymo/keyboard_handler_node.py))
+
+* **Functionality:**
+    * Listens for keyboard input in its terminal (requires interactive TTY).
+    * Detects the 's' key press.
+    * Publishes a `"toggle_pause"` message (`std_msgs/String`, Reliable QoS) on the `/keyboard_command` topic.
+    * Used to remotely toggle pause/resume for the `state_manager_node`.
+    * Restores terminal settings on exit.
+
+* **Usage:**
+    * **Important:** Must be run manually in a **separate, interactive terminal**
+    * In the new terminal, source your workspace: `source install/setup.bash` (or `.zsh`).
+    * Run the node: `ros2 run waymo keyboard_handler_node`
+    * Ensure the terminal running the node has keyboard focus.
+    * Press `s` to toggle the pause state (`MANUAL_PAUSE` <-> `FOLLOW_LANE`).
+    * Press `Ctrl+C` in the handler's terminal to stop it cleanly.
 
 ---
 
@@ -161,7 +178,7 @@ Nodes can be configured via ROS2 parameters or internal constants:
     * with https:
 
         ```bash
-        git clone [https://github.com/Bigfire3/waymo.git](https://github.com/Bigfire3/waymo.git)
+        git clone https://github.com/Bigfire3/waymo.git
         ```
 
 3. **Build the package:**
@@ -197,20 +214,21 @@ The nodes can be most easily started together using the provided launch file:
 
     This will start `lane_detection_node`, `obstacle_detection_node`, `state_manager_node`, and `gui_debug_node`.
 
-#### Alternative: `run_waymo.sh` Script
+#### Alternative: Shell Script
 
-The package also includes a script `run_waymo.sh` that automates the build process (only for `waymo`) and launching.
+The package also includes several scripts that automate the build process (only for `waymo`) and launching.
+There is a script for bash, zsh and a conda environment.
+
+Here are the steps for bash:
 
 1. Ensure the script is executable:
 
     ```bash
     cd ~/ros2_ws/src/waymo
-    chmod +x run_waymo.sh
+    chmod +x run_waymo_bash.sh
     ```
 
-2. Run the script of your preferred shell and evironment:
-
-    for example, if you are using bash:
+2. Run the script:
 
     ```bash
     ./run_waymo_bash.sh
