@@ -29,6 +29,7 @@ setup(
             'obstacle_detection_node = waymo.obstacle_detection_node:main',
             'state_manager_node = waymo.state_manager_node:main',
             'passing_obstacle_node = waymo.passing_obstacle_node:main',
+            'keyboard_handler_node = waymo.keyboard_handler_node:main',
         ],
     },
 )
