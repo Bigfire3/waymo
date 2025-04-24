@@ -41,15 +41,22 @@ class TrafficLightDetector(Node):
     def detect_red_light(self, frame):
         hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
-        # Red in HSV is split at hue=0 and hue=180
-        lower_red1 = (0, 100, 100)
+        # Tighter HSV ranges for red (saturated & bright)
+        lower_red1 = (0, 150, 150)
         upper_red1 = (10, 255, 255)
-        lower_red2 = (160, 100, 100)
+        lower_red2 = (160, 150, 150)
         upper_red2 = (179, 255, 255)
 
         mask1 = cv2.inRange(hsv, lower_red1, upper_red1)
         mask2 = cv2.inRange(hsv, lower_red2, upper_red2)
         red_mask = mask1 | mask2
+
+        # Extract brightness info from V channel
+        v_channel = hsv[:, :, 2]
+        _, bright_mask = cv2.threshold(v_channel, 220, 255, cv2.THRESH_BINARY)
+
+        # Combine red + brightness mask
+        bright_red_mask = cv2.bitwise_and(red_mask, bright_mask)
 
         h, w, _ = frame.shape
         roi_x1, roi_y1 = int(w * 0.05), int(h * 0.3)
@@ -59,20 +66,25 @@ class TrafficLightDetector(Node):
         cv2.rectangle(debug_frame, (roi_x1, roi_y1),
                       (roi_x2, roi_y2), (255, 255, 255), 2)
 
-        roi_mask = red_mask[roi_y1:roi_y2, roi_x1:roi_x2]
+        roi_mask = bright_red_mask[roi_y1:roi_y2, roi_x1:roi_x2]
         contours, _ = cv2.findContours(
             roi_mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
         for cnt in contours:
             area = cv2.contourArea(cnt)
             if area > 100:
-                cnt_shifted = cnt + [roi_x1, roi_y1]
-                cv2.drawContours(
-                    debug_frame, [cnt_shifted], -1, (0, 0, 255), 2)
-                cv2.putText(debug_frame, 'RED LIGHT',
-                            (roi_x1, roi_y1 - 10), cv2.FONT_HERSHEY_SIMPLEX,
-                            0.7, (0, 0, 255), 2)
-                return True, debug_frame
+                (x, y), radius = cv2.minEnclosingCircle(cnt)
+                circle_area = np.pi * radius * radius
+                shape_ratio = area / circle_area if circle_area > 0 else 0
+
+                if 0.6 < shape_ratio < 1.4:
+                    cnt_shifted = cnt + [roi_x1, roi_y1]
+                    cv2.drawContours(
+                        debug_frame, [cnt_shifted], -1, (0, 0, 255), 2)
+                    cv2.putText(debug_frame, 'RED LIGHT',
+                                (roi_x1, roi_y1 - 10), cv2.FONT_HERSHEY_SIMPLEX,
+                                0.7, (0, 0, 255), 2)
+                    return True, debug_frame
 
         return False, debug_frame
 
