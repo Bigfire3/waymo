@@ -1,35 +1,29 @@
 ## Robotics Project Summer Semester 2025: Team Waymo
 
-1. Step:
+**Project Milestones:**
 
-* follow street
-* react to obstacles (stop->continue/ignore)
+1. **[Done]** Basic Lane Following & Obstacle Reaction
+    * Follow detected lane lines.
+    * React to frontal obstacles (stop).
+2. **[WORK IN PROGRESS]** Traffic Light Reaction
+    * Detect traffic light states (Red/Green).
+    * Stop at red lights, proceed at green lights.
+3. **[Done]** Obstacle Passing & Lateral Obstacle Handling
+    * Pass stationary obstacles detected on the current lane by switching to the adjacent lane.
+    * Ignore obstacles detected far off to the side of the road (handled implicitly by detection ranges).
+4. **[WORK IN PROGRESS]** Parking Maneuver
+    * Recognize a designated parking sign.
+    * Execute an automated parking maneuver (e.g., parallel parking).
+    * Execute an automated maneuver to leave the parking spot.
+5. **[WORK IN PROGRESS]** Robust Lane Following
+    * Handle faded, incorrect, or missing lane markings.
+6. **[WORK IN PROGRESS]** Intersection Handling
+    * Detect intersections.
+    * Execute turns (e.g., based on predefined route or commands).
 
-2. Step:
+# Task: Lane Following, Obstacle Detection, and Passing
 
-* react to traffic light
-
-3. Step:
-
-* pass obstacles on other street side
-* ignore obstacles next to street
-
-4. Step:
-
-* recognize parking sign
-* park in/out
-
-5. Step:
-
-* follow street with false road markings
-
-6. Step:
-
-* handle intersections
-
-# Task 1: Lane Following and Obstacle Detection
-
-This repository contains ROS2 nodes in Python for basic lane and obstacle detection, inspired by autonomous driving functions. The package is designed for ROS2 Humble.
+This repository contains ROS2 nodes in Python for basic lane following, frontal obstacle detection, and automated obstacle passing maneuvers, inspired by autonomous driving functions. The package is designed for ROS2 Humble.
 
 ---
 
@@ -40,74 +34,87 @@ This package consists of several ROS2 nodes that work together:
 ### `lane_detection_node` ([View Code](https://github.com/Bigfire3/waymo/blob/development/waymo/lane_detection_node.py))
 
 * **Functionality:**
-    * Subscribes to raw image data from the topic `/image_raw/compressed`.
-    * Uses OpenCV for image processing to detect lane lines (utilizes helper modules `lane.py` and `edge_detection.py`).
-    * Applies a perspective transformation to get a top-down view of the lane.
-    * Filters detected lines based on their thickness.
-    * Calculates the lateral offset of the robot from the lane center.
-    * Publishes the annotated image (with detected lines and ROI) on the topic `/lane/image_annotated`.
-    * Publishes the calculated offset from the lane center on the topic `/lane/center_offset` (type `std_msgs/Float64`).
+    * Subscribes to raw image data (`/image_raw/compressed`).
+    * Uses OpenCV for image processing to detect lane lines (`lane.py`, `edge_detection.py`).
+    * Applies perspective transformation for a top-down view.
+    * Filters lines based on thickness.
+    * Calculates the robot's lateral offset from the lane center.
+    * Publishes annotated image (`/lane/image_annotated`).
+    * Publishes calculated center offset (`/lane/center_offset` - `std_msgs/Float64`).
 * **Dependencies:** OpenCV, NumPy, cv_bridge.
 
 ### `obstacle_detection_node` ([View Code](https://github.com/Bigfire3/waymo/blob/development/waymo/obstacle_detection_node.py))
 
 * **Functionality:**
-    * Subscribes to laser scan data from the topic `/scan` (type `sensor_msgs/LaserScan`).
-    * Checks distance measurements within a configurable angular range in front of the robot.
-    * Detects if an obstacle is closer than a defined stopping distance.
-    * Publishes a boolean value on the topic `/obstacle/blocked` (type `std_msgs/Bool`), which is `true` if an obstacle is too close.
+    * Subscribes to laser scan data (`/scan` - `sensor_msgs/LaserScan`).
+    * Checks distance measurements in a frontal angular range.
+    * Detects if an obstacle is closer than `distance_to_stop`.
+    * Publishes obstacle status (`/obstacle/blocked` - `std_msgs/Bool`).
 * **Dependencies:** -
 
 ### `state_manager_node` ([View Code](https://github.com/Bigfire3/waymo/blob/development/waymo/state_manager_node.py))
 
 * **Functionality:**
-    * Acts as a state machine for the robot.
-    * Subscribes to the obstacle status from `/obstacle/blocked` and the lane offset from `/lane/center_offset`.
-    * Determines the current state of the robot (e.g., `WAYMO_STARTED`, `STOPPED`, `FOLLOW_LANE`).
-    * Publishes the current state on the topic `/robot/state` (type `std_msgs/String`).
-    * Sends velocity commands (forward and rotation) to the robot via the topic `/cmd_vel` (type `geometry_msgs/Twist`), based on the state and lane offset.
-* **Dependencies:** -
+    * Acts as the main state machine (`WAYMO_STARTED`, `STOPPED`, `FOLLOW_LANE`, `PASSING_OBSTACLE`).
+    * Subscribes to obstacle status (`/obstacle/blocked`), lane offset (`/lane/center_offset`), and obstacle passed signal (`/obstacle/passed`).
+    * Determines the robot's current operational state.
+    * Publishes the current state (`/robot/state` - `std_msgs/String`).
+    * Sends velocity commands (`/cmd_vel` - `geometry_msgs/Twist`) based on state and lane offset (using P-control via a fixed-rate timer for smoothness).
+    * Relinquishes control of `/cmd_vel` during the `PASSING_OBSTACLE` state.
+* **Dependencies:** NumPy.
+
+### `passing_obstacle_node` ([View Code](https://github.com/Bigfire3/waymo/blob/development/waymo/passing_obstacle_node.py))
+
+* **Functionality:**
+    * Handles the automated obstacle passing maneuver.
+    * Activated by `state_manager_node` when state becomes `PASSING_OBSTACLE`.
+    * Takes exclusive control of `/cmd_vel` during the maneuver.
+    * Subscribes to odometry (`/odom`) for orientation (yaw).
+    * Subscribes to laser scan (`/scan`) to check if the side is clear of the obstacle.
+    * Subscribes to lane offset (`/lane/center_offset`) to perform lane following on the adjacent lane during the pass.
+    * Executes a multi-step sequence: 90° turn left, move sideways (following adjacent lane), 90° turn right, drive straight (following adjacent lane) until the side scan indicates the obstacle is passed, 90° turn right, move sideways back to original lane (following lane), 90° turn left.
+    * Uses internal constants for maneuver parameters (turn angles, sideways distance, side scan angles, clear distance threshold).
+    * Publishes a signal upon completion (`/obstacle/passed` - `std_msgs/Bool`) to notify `state_manager_node`.
+* **Dependencies:** NumPy, SciPy (for quaternion conversion).
 
 ### `gui_debug_node` ([View Code](https://github.com/Bigfire3/waymo/blob/development/waymo/gui_debug_node.py))
 
 * **Functionality:**
-    * Subscribes to the annotated image from `/lane/image_annotated` and the robot state from `/robot/state`.
-    * Displays the annotated camera image in an OpenCV window named `Kamerabild Debug`.
-    * Prints changes in the robot's state to the console.
+    * Subscribes to annotated image (`/lane/image_annotated`) and robot state (`/robot/state`).
+    * Displays the annotated camera image in an OpenCV window.
+    * Prints changes in the robot's state (including `PASSING_OBSTACLE`) to the console.
     * Primarily serves for debugging and visualization.
 * **Dependencies:** OpenCV, cv_bridge.
 
 ---
 
-## Parameters
+## Parameters & Key Constants
 
-Several nodes allow configuration via ROS2 parameters:
+Nodes can be configured via ROS2 parameters or internal constants:
 
 ### `lane_detection_node`
 
-* **Thresholding & Filtering:**
-    * `block_size`: Size of the neighborhood area for adaptive thresholding (Default: `11`).
-    * `c_value`: Constant subtracted from the mean or weighted mean (Default: `20`).
-    * `min_thickness`: Minimum average thickness (area/perimeter) for valid line contours (Default: `2.5`).
-    * `max_thickness`: Maximum average thickness for valid line contours (Default: `5.0`).
-* **Center Calculation:**
-    * `center_factor`: Factor for scaling the pixel offset into a control command (Default: `0.025`).
-* **Perspective Transform ROI (Region of Interest):**
-    * `roi_top_left_w`, `roi_top_left_h`: Relative coordinates (width, height) of the top-left corner of the ROI (Default: `0.2`, `0.65`).
-    * `roi_top_right_w`, `roi_top_right_h`: Top-right corner (Default: `0.8`, `0.65`).
-    * `roi_bottom_left_w`, `roi_bottom_left_h`: Bottom-left corner (Default: `0.0`, `1.0`).
-    * `roi_bottom_right_w`, `roi_bottom_right_h`: Bottom-right corner (Default: `1.0`, `1.0`).
-    * `desired_roi_padding_factor`: Relative distance from the edge in the transformed image (Default: `0.25`).
+* See code for detailed parameter descriptions (`block_size`, `c_value`, `min_thickness`, `max_thickness`, `center_factor`, ROI parameters).
+* `center_factor`: Crucial for scaling the lane offset into a steering command (Default: `0.03`). Tuning this affects lane following smoothness and ability to take curves.
 
 ### `obstacle_detection_node`
 
-* `distance_to_stop`: Minimum distance (in meters) at which an obstacle is detected as blocking (Default: `0.25`).
-* `angle_range_min`: Minimum angle (in radians, relative to the robot's front) for obstacle detection (Default: `-0.2 rad`, approx. -11.5°).
-* `angle_range_max`: Maximum angle (in radians) for obstacle detection (Default: `0.2 rad`, approx. +11.5°).
+* `distance_to_stop`: Minimum frontal distance to trigger stop (Default: `0.25` m).
+* `angle_range_min`/`max`: Defines the frontal detection cone (Defaults correspond to approx. +/- 11.5°).
 
 ### `state_manager_node`
 
-* `drivingspeed`: Base speed for driving (Default: `0.15 m/s`). *`Note: The code seems to partially hardcode this value to 0.15, check the implementation.`*
+* `drivingspeed`: Base driving speed during `FOLLOW_LANE` (Default: `0.15` m/s).
+* `control_loop_period`: timer to smooth the driving during `FOLLOW_LANE` (Default: 200 Hz)
+
+### `passing_obstacle_node`
+
+* Uses internal constants defined at the top of the file:
+    * `LINEAR_SPEED`, `ANGULAR_SPEED`: Speeds during the maneuver.
+    * `SIDEWAYS_DISTANCE`: Target lateral distance for lane change.
+    * `SIDE_SCAN_ANGLE_MIN_DEG`, `SIDE_SCAN_ANGLE_MAX_DEG`: Angular range for checking if the obstacle is passed (Note: Current values might reflect left side based on user testing environment).
+    * `SIDE_SCAN_CLEAR_DISTANCE`: Distance threshold to consider the side clear.
+    * `WAIT_DURATION_BEFORE_CHECK`: Pause duration before starting the side check.
 
 ---
 
@@ -115,84 +122,100 @@ Several nodes allow configuration via ROS2 parameters:
 
 ### Prerequisites / Installation
 
-1.  **ROS2 Humble:** Ensure ROS2 Humble is installed.
+1. **ROS2 Humble:** Ensure ROS2 Humble is installed.
     * [Ubuntu Installation Guide](https://docs.ros.org/en/humble/Installation/Ubuntu-Install-Debs.html)
 
-2.  **Colcon:** Install the build tool Colcon.
+2. **Colcon:** Install the build tool Colcon.
+
     ```bash
     sudo apt update
     sudo apt install python3-colcon-common-extensions
     ```
 
-3.  **Python Dependencies (OpenCV, cv_bridge):** These are necessary for image processing and the GUI.
-    * **cv_bridge:** Essential for converting between ROS image messages and OpenCV images.
-    * **OpenCV:** Required for image processing algorithms.
+3. **Python Dependencies:** OpenCV, cv_bridge, NumPy, SciPy.
+    * Install via ROS packages if possible:
 
-    First, try installing via ROS packages (recommended on Ubuntu):
-    ```bash
-    sudo apt update
-    sudo apt install ros-humble-cv-bridge python3-opencv
-    ```
+        ```bash
+        sudo apt update
+        sudo apt install ros-humble-cv-bridge python3-opencv python3-scipy python3-numpy
+        ```
+
+    * Alternatively, use pip within your environment (e.g., Conda): `pip install numpy scipy opencv-python` (cv_bridge usually comes with ROS).
 
 ### Workspace Setup
 
-1.  Create a ROS2 workspace (if not already done):
+1. Create a ROS2 workspace (if not already done):
+
     ```bash
     mkdir -p ~/ros2_ws/src
     cd ~/ros2_ws/src
     ```
 
-2.  Clone the waymo package from GitHub into your src folder:
+2. Clone the waymo package from GitHub into your src folder:
     * with ssh:
+
         ```bash
         git clone git@github.com:Bigfire3/waymo.git
         ```
+
     * with https:
+
         ```bash
         git clone [https://github.com/Bigfire3/waymo.git](https://github.com/Bigfire3/waymo.git)
         ```
 
-3.  **Build the package:**
+3. **Build the package:**
+
     ```bash
     cd ~/ros2_ws
     colcon build --packages-select waymo
     ```
 
-4.  **Source the workspace:**
+4. **Source the workspace:**
+
     ```bash
     source ~/ros2_ws/install/setup.bash
     ```
+
     *`Add this command to your .bashrc (or .zshrc) to avoid running it manually every time.`*
 
 ### Running the Package
 
 The nodes can be most easily started together using the provided launch file:
 
-1.  **Source the workspace** (if not already done):
+1. **Source the workspace** (if not already done):
+
     ```bash
     source ~/ros2_ws/install/setup.bash
     ```
 
-2.  **Start the launch file:**
+2. **Start the launch file:**
+
     ```bash
     ros2 launch waymo waymo_launch.py
     ```
+
     This will start `lane_detection_node`, `obstacle_detection_node`, `state_manager_node`, and `gui_debug_node`.
 
 #### Alternative: `run_waymo.sh` Script
 
 The package also includes a script `run_waymo.sh` that automates the build process (only for `waymo`) and launching.
 
-1.  Ensure the script is executable:
+1. Ensure the script is executable:
+
     ```bash
     cd ~/ros2_ws/src/waymo
     chmod +x run_waymo.sh
     ```
 
-2.  Run the script:
+2. Run the script of your preferred shell and evironment:
+
+    for example, if you are using bash:
+
     ```bash
-    ./run_waymo.sh
+    ./run_waymo_bash.sh
     ```
+
     *`(Paths in the script might need adjustment, e.g., the path to the workspace cd ~/ros2_ws and the source command)`*
 
 ### Modifying Parameters
@@ -202,18 +225,25 @@ Parameters can be changed at runtime via the ROS2 CLI. Open a new terminal (and 
 **Examples:**
 
 * Change the stopping distance for obstacles:
+
     ```bash
     ros2 param set /obstacle_detection_node distance_to_stop 0.3
     ```
+
 * Adjust the thresholding parameter for lane detection:
+
     ```bash
     ros2 param set /lane_detection_node c_value 25
     ```
+
 * Change the base driving speed:
+
     ```bash
     ros2 param set /state_manager_node drivingspeed 0.1
     ```
+
 * Adjust the ROI for lane detection:
+
     ```bash
     ros2 param set /lane_detection_node roi_top_left_h 0.6
     ```
@@ -222,37 +252,47 @@ Parameters can be changed at runtime via the ROS2 CLI. Open a new terminal (and 
 
 Open new terminals (and source the workspace) to check the functionality:
 
-1.  **`Display motion commands (/cmd_vel):`**
+1. **`Display motion commands (/cmd_vel):`**
+
     ```bash
     ros2 topic echo /cmd_vel
     ```
+
     *`Shows the velocity commands sent by state_manager_node.`*
 
-2.  **`Display robot state (/robot/state):`**
+2. **`Display robot state (/robot/state):`**
+
     ```bash
     ros2 topic echo /robot/state
     ```
+
     *`Shows the current state (WAYMO_STARTED, STOPPED, FOLLOW_LANE).`*
 
-3.  **`Display obstacle status (/obstacle/blocked):`**
+3. **`Display obstacle status (/obstacle/blocked):`**
+
     ```bash
     ros2 topic echo /obstacle/blocked
     ```
+
     *`Shows true or false, depending on whether an obstacle was detected.`*
 
-4.  **`Display lane offset (/lane/center_offset):`**
+4. **`Display lane offset (/lane/center_offset):`**
+
     ```bash
     ros2 topic echo /lane/center_offset
     ```
+
     *Shows the calculated lateral offset from the lane center.*
 
-5.  **Annotated Image (GUI):**
+5. **Annotated Image (GUI):**
     * If `gui_debug_node` is running and the GUI libraries are functioning correctly, a window named `Kamerabild Debug` should appear, showing the processed camera image.
 
-6.  **Visualize Node Graph:**
+6. **Visualize Node Graph:**
+
     ```bash
     rqt_graph
     ```
+
     *`Shows how the nodes are connected and which topics they use (requires rqt).`*
 
 ---
