@@ -31,4 +31,12 @@ def generate_launch_description():
             name='lane_detection_node',
             output='screen'
         ),
+
+        # NEUE NODE HINZUGEFÜGT
+        Node(
+            package='waymo',
+            executable='passing_obstacle_node',
+            name='passing_obstacle_node',
+            output='screen'
+        ),
     ])
