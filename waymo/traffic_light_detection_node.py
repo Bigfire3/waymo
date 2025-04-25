@@ -27,7 +27,7 @@ class TrafficLightDetector(Node):
 
         # === CONFIGURABLE ===
         self.COMBINE_LAST_N = 3            # Number of frames to combine
-        self.INTER_FRAME_DELAY = 0.005      # Seconds to wait between processing frames
+        self.INTER_FRAME_DELAY = 0.001      # Seconds to wait between processing frames
 
     def image_callback(self, msg):
         now = time.time()
@@ -103,11 +103,11 @@ class TrafficLightDetector(Node):
 
         for cnt in contours:
             area = cv2.contourArea(cnt)
-            if area > 20:
+            if area > 5:
                 (x, y), radius = cv2.minEnclosingCircle(cnt)
                 circle_area = np.pi * radius * radius
                 shape_ratio = area / circle_area if circle_area > 0 else 0
-                if 0.6 < shape_ratio < 1.4:
+                if 0.4 < shape_ratio < 1.6:
                     cv2.drawContours(
                         filtered_mask, [cnt], -1, 255, thickness=cv2.FILLED)
 
