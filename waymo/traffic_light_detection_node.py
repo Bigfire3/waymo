@@ -26,8 +26,8 @@ class TrafficLightDetector(Node):
         self.last_update_time = time.time()
 
         # === CONFIGURABLE ===
-        self.COMBINE_LAST_N = 3            # Number of frames to combine
-        self.INTER_FRAME_DELAY = 0.001      # Seconds to wait between processing frames
+        self.COMBINE_LAST_N = 2            # Number of frames to combine
+        self.INTER_FRAME_DELAY = 0.002      # Seconds to wait between processing frames
 
     def image_callback(self, msg):
         now = time.time()
@@ -79,9 +79,9 @@ class TrafficLightDetector(Node):
         hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
         # Red detection ranges
-        lower_red1 = (0, 1, 150)
+        lower_red1 = (0, 5, 190)
         upper_red1 = (30, 255, 255)
-        lower_red2 = (150, 1, 150)
+        lower_red2 = (150, 5, 190)
         upper_red2 = (180, 255, 255)
 
         mask1 = cv2.inRange(hsv, lower_red1, upper_red1)
@@ -107,7 +107,7 @@ class TrafficLightDetector(Node):
                 (x, y), radius = cv2.minEnclosingCircle(cnt)
                 circle_area = np.pi * radius * radius
                 shape_ratio = area / circle_area if circle_area > 0 else 0
-                if 0.4 < shape_ratio < 1.6:
+                if 0.6 < shape_ratio < 1.4:
                     cv2.drawContours(
                         filtered_mask, [cnt], -1, 255, thickness=cv2.FILLED)
 
@@ -131,6 +131,9 @@ class TrafficLightDetector(Node):
 
         return combined
 
+    def destroy_node(self):
+        super().destroy_node()
+
 
 def main(args=None):
     rclpy.init(args=args)
@@ -142,7 +145,8 @@ def main(args=None):
         pass
     finally:
         node.destroy_node()
-        rclpy.shutdown()
+        if rclpy.ok():
+            rclpy.shutdown()
         cv2.destroyAllWindows()
 
 
