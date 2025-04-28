@@ -26,8 +26,9 @@ class TrafficLightDetector(Node):
         self.last_update_time = time.time()
 
         # === CONFIGURABLE ===
-        self.COMBINE_LAST_N = 2            # Number of frames to combine
-        self.INTER_FRAME_DELAY = 0.002      # Seconds to wait between processing frames
+        self.COMBINE_LAST_N = 1            # Number of frames to combine
+        # Seconds to wait between processing frames
+        self.INTER_FRAME_DELAY = 0.002
 
     def image_callback(self, msg):
         now = time.time()
@@ -79,9 +80,9 @@ class TrafficLightDetector(Node):
         hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
         # Red detection ranges
-        lower_red1 = (0, 5, 190)
+        lower_red1 = (0, 3, 190)
         upper_red1 = (30, 255, 255)
-        lower_red2 = (150, 5, 190)
+        lower_red2 = (150, 3, 190)
         upper_red2 = (180, 255, 255)
 
         mask1 = cv2.inRange(hsv, lower_red1, upper_red1)
