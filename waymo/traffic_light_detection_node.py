@@ -68,8 +68,8 @@ class TrafficLightDetector(Node):
                     self.spotted_once = True
 
                 self.publisher_.publish(Bool(data=current_bool))
-                self.get_logger().info(
-                    f"Traffic light is {'RED' if is_red_light else 'NOT RED'}")
+                # self.get_logger().info(
+                #     f"Traffic light is {'RED' if is_red_light else 'NOT RED'}")
                 self.previous_state = current_bool
 
             cv2.imshow("Combined Filtered Structures", combined_mask)
