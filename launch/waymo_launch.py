@@ -34,9 +34,15 @@ def generate_launch_description():
 
         Node(
             package='waymo',
+            executable='passing_obstacle_node',
+            name='passing_obstacle_node',
+            output='screen'
+        ),
+
+        Node(
+            package='waymo',
             executable='traffic_light_detection_node',
             name='traffic_light_detection_node',
             output='screen'
         ),
-
     ])

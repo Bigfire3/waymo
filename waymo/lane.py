@@ -2,7 +2,6 @@ import cv2
 import numpy as np
 from . import edge_detection as edge
 import matplotlib.pyplot as plt
-import time
 
 
 class Lane:
@@ -19,6 +18,7 @@ class Lane:
         self.rightx = None
         self.lefty = None
         self.righty = None
+
         # Für die Glättung am unteren Rand:
         self.previous_bottom_left_x = None
         self.previous_bottom_right_x = None
@@ -63,14 +63,10 @@ class Lane:
         # Vier Ecken des trapezförmigen ROI (Region of Interest)
         h, w = self.orig_frame.shape[:2]
         self.roi_points = np.float32([
-            (w * params.get('roi_top_left_w'), h *
-             params.get('roi_top_left_h')),   # top-left
-            (w * params.get('roi_bottom_left_w'), h *
-             params.get('roi_bottom_left_h')),     # bottom-left
-            (w * params.get('roi_bottom_right_w'), h *
-             params.get('roi_bottom_right_h')),     # bottom-right
-            (w * params.get('roi_top_right_w'), h *
-             params.get('roi_top_right_h'))     # top-right
+            (w * params.get('roi_top_left_w'), h * params.get('roi_top_left_h')),   # top-left
+            (w * params.get('roi_bottom_left_w'), h * params.get('roi_bottom_left_h')),     # bottom-left
+            (w * params.get('roi_bottom_right_w'), h * params.get('roi_bottom_right_h')),     # bottom-right
+            (w * params.get('roi_top_right_w'), h * params.get('roi_top_right_h'))     # top-right
         ])
 
         # Zielpunkte für die Perspektivtransformation
@@ -112,8 +108,7 @@ class Lane:
         # Kamera als Bildmitte annehmen
         car_location = self.orig_frame.shape[1] / 2
 
-        center_offset = (abs(car_location) -
-                         abs(self.current_center)) * params.get('center_factor')
+        center_offset = (abs(car_location) - abs(self.current_center)) * params.get('center_factor')
 
         if print_to_terminal:
             print(f"Center Offset (smoothed): {center_offset} cm")
@@ -227,8 +222,7 @@ class Lane:
 
         frame_sliding_window = self.filtered_warped_frame.copy()
 
-        window_height = int(
-            self.filtered_warped_frame.shape[0] / self.no_of_windows)
+        window_height = int(self.filtered_warped_frame.shape[0] / self.no_of_windows)
         nonzero = self.filtered_warped_frame.nonzero()
         nonzeroy = np.array(nonzero[0])
         nonzerox = np.array(nonzero[1])
@@ -248,10 +242,8 @@ class Lane:
         right_lane_inds = []
 
         for window in range(self.no_of_windows):
-            win_y_low = self.filtered_warped_frame.shape[0] - (
-                window+1)*window_height
-            win_y_high = self.filtered_warped_frame.shape[0] - \
-                window*window_height
+            win_y_low = self.filtered_warped_frame.shape[0] - (window+1)*window_height
+            win_y_high = self.filtered_warped_frame.shape[0] - window*window_height
             win_xleft_low = leftx_current - margin
             win_xleft_high = leftx_current + margin
             win_xright_low = rightx_current - margin
@@ -388,7 +380,7 @@ class Lane:
         if self.current_center is not None:
             cv2.circle(result, (int(self.current_center),
                        self.y_bottom), 5, (0, 0, 255), -1)
-
+        
         if plot:
             fig, (ax1, ax2) = plt.subplots(2, 1)
             fig.set_size_inches(10, 10)
@@ -420,16 +412,15 @@ class Lane:
             warped_plot = cv2.polylines(warped_copy, [np.int32(
                 self.desired_roi_points)], True, (147, 20, 255), 3)
             cv2.imshow('Warped Image', warped_plot)
-
-    def filter_lane_markings_by_thickness(self, plot=False, **params):
+    
+    def filter_lane_markings_by_thickness(self, plot=False, **params):       
         if (self.warped_frame is None):
             return
-
+        
         min_thickness = params.get('min_thickness')
         max_thickness = params.get('max_thickness')
 
-        contours, _ = cv2.findContours(
-            self.warped_frame, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        contours, _ = cv2.findContours(self.warped_frame, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         filtered_mask = np.zeros_like(self.warped_frame)
 
         for contour in contours:

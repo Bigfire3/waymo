@@ -1,4 +1,6 @@
 from setuptools import find_packages, setup
+import os
+from glob import glob
 
 package_name = 'waymo'
 
@@ -10,13 +12,14 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
-        ('share/' + package_name + '/launch', ['launch/waymo_launch.py'])
+        (os.path.join('share', package_name, 'launch'), glob(os.path.join('launch', '*launch.[pxy][yma]*')))
     ],
-    install_requires=['setuptools'],
+    # Entferne tf-transformations, füge scipy hinzu (wird oft als Teil von numpy installiert, aber sicher ist sicher)
+    install_requires=['setuptools', 'numpy', 'scipy'],
     zip_safe=True,
     maintainer='fabian',
     maintainer_email='fabian.zaenker@web.de',
-    description='TODO: Package description',
+    description='ROS2 package for lane following, obstacle detection and passing.',
     license='Apache-2.0',
     tests_require=['pytest'],
     entry_points={
@@ -25,7 +28,9 @@ setup(
             'gui_debug_node = waymo.gui_debug_node:main',
             'obstacle_detection_node = waymo.obstacle_detection_node:main',
             'state_manager_node = waymo.state_manager_node:main',
+            'passing_obstacle_node = waymo.passing_obstacle_node:main',
             'traffic_light_detection_node = waymo.traffic_light_detection_node:main',
+            'keyboard_handler_node = waymo.keyboard_handler_node:main',
         ],
     },
 )

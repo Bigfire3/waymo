@@ -2,111 +2,195 @@ import rclpy
 import rclpy.node
 import numpy as np
 import time
+import sys
+import traceback
+
 from std_msgs.msg import String, Float64, Bool
 from geometry_msgs.msg import Twist
-from sensor_msgs.msg import CompressedImage
-from cv_bridge import CvBridge, CvBridgeError
+from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
+from rclpy.duration import Duration # Für Timer
 
+# --- Neuer Zustand ---
+MANUAL_PAUSE_STATE = 'MANUAL_PAUSE'
+COMMAND_TOPIC = '/keyboard_command' # Selber Topic Name wie im Handler
 
 class StateMachine(rclpy.node.Node):
 
     def __init__(self):
-        super().__init__('StateMachine')
+        super().__init__('state_manager_node')
         self.declare_parameter('drivingspeed', 0.15)
-        self.center_offset = 0.0
-        self.driving_speed = 0.0
-        self.angular_z = 0.0
-        self.state_obstacle = 'WAYMO_STARTED'
-        self.state_traffic_light = 'WAYMO_STARTED'
-        qos_policy = rclpy.qos.QoSProfile(reliability=rclpy.qos.ReliabilityPolicy.BEST_EFFORT,
-                                          history=rclpy.qos.HistoryPolicy.KEEP_LAST,
-                                          depth=1)
-        self.obstacle_subscription = self.create_subscription(
-            Bool, 'obstacle/blocked', self.obstacle_detection_callback, qos_profile=qos_policy)
-        self.offset_subscription = self.create_subscription(
-            Float64, 'lane/center_offset', self.lane_detection_callback, qos_profile=qos_policy)
-        self.traffic_light_subscription = self.create_subscription(
-            Bool, 'traffic_light', self.traffic_light_callback, qos_profile=qos_policy)
-        self.state_publisher_ = self.create_publisher(String, 'robot/state', 1)
-        self.twist_publisher_ = self.create_publisher(Twist, 'cmd_vel', 1)
-        # self.get_logger().info('State Machine Node started')
+        self.center_offset = 0.0 # Wird von lane_detection_callback aktualisiert
+        self.state = 'WAYMO_STARTED'
+        self.manual_pause_active = False # Flag für manuelle Pause
 
-    def logic_function(self):
-        # self.get_logger().info(
-        # f'traffic_state: {self.state_traffic_light}, obstacle_state: {self.state_obstacle}')
-        match (self.state_obstacle, self.state_traffic_light):
-            case ('WAYMO_STARTED', 'WAYMO_STARTED'):
-                self.driving_speed = 0.0
-                self.angular_z = 0.0
-                self.send_cmd_vel(self.driving_speed, self.angular_z)
+        # QoS Profile (Gemischt - Empfohlen)
+        qos_sensor = QoSProfile(
+            reliability=ReliabilityPolicy.BEST_EFFORT,
+            history=HistoryPolicy.KEEP_LAST, depth=1
+        )
+        qos_reliable = QoSProfile(
+            reliability=ReliabilityPolicy.RELIABLE,
+            history=HistoryPolicy.KEEP_LAST, depth=1
+        )
 
-            case ('STOPPED', _):
-                self.driving_speed = 0.0
-                self.angular_z = 0.0
-                self.send_cmd_vel(self.driving_speed, self.angular_z)
+        # Subscribers
+        self.obstacle_subscription = self.create_subscription(Bool, 'obstacle/blocked', self.obstacle_detection_callback, qos_sensor)
+        self.offset_subscription = self.create_subscription(Float64, 'lane/center_offset', self.lane_detection_callback, qos_sensor)
+        self.passed_subscription = self.create_subscription(Bool, '/obstacle/passed', self.obstacle_passed_callback, qos_reliable)
+        self.traffic_light_subscription = self.create_subscription(Bool, 'traffic_light', self.traffic_light_callback, qos_sensor)
+        self.keyboard_cmd_subscription = self.create_subscription(String, COMMAND_TOPIC, self.keyboard_command_callback, qos_reliable)
 
-            case (_, 'STOPPED'):
-                self.driving_speed = 0.0
-                self.angular_z = 0.0
-                self.send_cmd_vel(self.driving_speed, self.angular_z)
+        # Publishers
+        self.state_publisher_ = self.create_publisher(String, 'robot/state', qos_reliable)
+        self.twist_publisher_ = self.create_publisher(Twist, 'cmd_vel', qos_reliable)
 
-            case ('FOLLOW_LANE', 'FOLLOW_LANE'):
-                self.driving_speed = 0.15
-                self.angular_z = self.center_offset
-                self.send_cmd_vel(self.driving_speed, self.angular_z)
-            case _:
-                self.driving_speed = 0.15
-                self.angular_z = self.center_offset
-                self.send_cmd_vel(self.driving_speed, self.angular_z)
+        # Control Timer
+        control_loop_period = 0.005 # 200 Hz
+        self.control_timer = self.create_timer(control_loop_period, self.control_loop_callback)
 
-        self.state = (self.state_obstacle + self.state_traffic_light)
-        self.state_publisher_.publish(String(data=self.state))
+        # self.get_logger().info('State Machine Node started (Timer-based P-Controller, Keyboard Pause Enabled)')
+        self.publish_current_state() # Initialen Zustand senden
+        self.send_cmd_vel(0.0, 0.0) # Sicherstellen, dass Roboter initial steht
 
-    def obstacle_detection_callback(self, msg):
-        blocked = msg.data
-        if (blocked):
-            self.state_obstacle = 'STOPPED'
+    def keyboard_command_callback(self, msg: String):
+        """Verarbeitet Befehle vom Keyboard Handler Node."""
+        if msg.data == 'toggle_pause':
+            self.toggle_manual_pause()
+
+    def toggle_manual_pause(self):
+        """Schaltet den manuellen Pause-Zustand um."""
+        if not self.manual_pause_active:
+            # --- PAUSE AKTIVIEREN ---
+            self.manual_pause_active = True
+            self.send_cmd_vel(0.0, 0.0)
+            # Den aktuellen internen Zustand NICHT ändern, nur den veröffentlichten
+            pause_state_msg = String()
+            pause_state_msg.data = MANUAL_PAUSE_STATE
+            self.state_publisher_.publish(pause_state_msg)
         else:
-            self.state_obstacle = 'FOLLOW_LANE'
-        self.logic_function()
+            # --- PAUSE DEAKTIVIEREN ---
+            self.manual_pause_active = False
+            # Wechsle Zwangsläufig zu FOLLOW_LANE (ruft auch publish_current_state)
+            self.change_state('FOLLOW_LANE')
 
-    def lane_detection_callback(self, msg):
+    def control_loop_callback(self):
+        """Wird vom Timer aufgerufen, berechnet Steuerung und publiziert Zustand."""
+        # --- KEINE AKTION WENN PAUSIERT (ausser State Publish) ---
+        if self.manual_pause_active:
+             # Publish 'MANUAL_PAUSE' state periodically while paused
+             self.publish_current_state()
+             return
+
+        current_state = self.state
+        driving_speed = 0.0
+        angular_z = 0.0
+
+        if current_state == 'FOLLOW_LANE':
+            driving_speed = self.get_parameter('drivingspeed').get_parameter_value().double_value
+            angular_z = self.center_offset
+            max_angular_z = 1.0
+            angular_z = np.clip(angular_z, -max_angular_z, max_angular_z)
+            self.send_cmd_vel(driving_speed, angular_z)
+
+        if current_state == 'STOPPED_AT_TRAFFIC_LIGHT':
+            self.send_cmd_vel(0.0, 0.0)
+
+        # In anderen Zuständen (STOPPED, WAYMO_STARTED) wird Stop von change_state gesendet
+        # In PASSING_OBSTACLE wird nichts gesendet
+
+        # --- NEU: Zustand periodisch publishen ---
+        # Rufe dies auf, nachdem die Logik für den aktuellen Zustand durchlaufen wurde
+        # (ausser wenn pausiert, das wird oben behandelt)
+        self.publish_current_state()
+        # --- Ende Zustands-Publishing ---
+
+    def change_state(self, new_state):
+        """Ändert den Zustand, publiziert ihn und sendet initialen Befehl."""
+        if self.manual_pause_active: return # Keine automatischen Änderungen wenn pausiert
+
+        if self.state != new_state:
+            # old_state = self.state # Nicht mehr für Log gebraucht
+            self.state = new_state
+            # self.get_logger().info(f"State change from {old_state} to {self.state}") # Entfernt
+            self.publish_current_state() # Neuen Zustand sofort publizieren
+
+            if self.state == 'STOPPED' or self.state == 'WAYMO_STARTED':
+                 self.send_cmd_vel(0.0, 0.0) # Stop-Befehl senden
+
+    def obstacle_detection_callback(self, msg: Bool):
+        """Verarbeitet Hinderniserkennung und löst Zustandswechsel aus."""
+        if self.manual_pause_active: return
+        blocked = msg.data
+        current_state = self.state
+        if blocked:
+            if current_state == 'FOLLOW_LANE': self.change_state('STOPPED')
+            elif current_state == 'STOPPED': self.change_state('PASSING_OBSTACLE')
+        else: # Not blocked
+             if current_state == 'STOPPED': self.change_state('FOLLOW_LANE')
+             elif current_state == 'WAYMO_STARTED' and current_state != 'FOLLOW_LANE': self.change_state('FOLLOW_LANE')
+
+    def lane_detection_callback(self, msg: Float64):
+        """Aktualisiert NUR den Offset-Wert."""
         self.center_offset = msg.data
-        self.logic_function()
+        # Steuerung wird vom Timer übernommen
 
+    def obstacle_passed_callback(self, msg: Bool):
+        """Verarbeitet Signal, dass Hindernis passiert wurde."""
+        if self.manual_pause_active: return
+        passed = msg.data
+        
     def traffic_light_callback(self, msg):
         # self.get_logger().info('traffic light callback inside logic function triggered')
         go = msg.data
         if (go):
-            self.state_traffic_light = 'FOLLOW_LANE'
+            self.state = 'FOLLOW_LANE'
         else:
-            self.state_traffic_light = 'STOPPED'
-        # self.logic_function()
+            self.state = 'STOPPED_AT_TRAFFIC_LIGHT'
 
-    def destroy_node(self):
-        super().destroy_node()
+    def publish_current_state(self):
+        """Publisht den aktuellen oder den Pause-Zustand."""
+        state_to_publish = self.state if not self.manual_pause_active else MANUAL_PAUSE_STATE
+        state_msg = String(); state_msg.data = state_to_publish
+        try:
+             # Prüfe ob Kontext noch gültig ist vor dem Publishen
+             if rclpy.ok() and self.context.ok(): self.state_publisher_.publish(state_msg)
+        except Exception: pass # Ignoriere Fehler beim Herunterfahren
 
     def send_cmd_vel(self, linear_x, angular_z):
-        twist = Twist()
-        twist.linear.x = linear_x
-        twist.angular.z = angular_z
-        self.twist_publisher_.publish(twist)
-        # self.get_logger().info(
-        # f'Sent cmd_vel: linear_x={linear_x}, angular_z={angular_z}')
+       """Sendet Bewegungsbefehle, aber nicht wenn pausiert."""
+       if self.manual_pause_active: return
+       twist = Twist(); twist.linear.x = linear_x; twist.angular.z = float(angular_z)
+       try:
+           if rclpy.ok() and self.context.ok(): self.twist_publisher_.publish(twist)
+       except Exception: pass
 
+    def destroy_node(self):
+        """Aufräumarbeiten."""
+        # self.get_logger().info("Shutting down State Machine Node.") # Entfernt
+        try:
+             if rclpy.ok() and self.context.ok():
+                  self.manual_pause_active = False # Deaktiviere Pause für Stopp-Befehl
+                  self.send_cmd_vel(0.0, 0.0); time.sleep(0.1)
+        except Exception as e: pass # Fehler ignorieren
+            # self.get_logger().warn(f"Could not send stop cmd: {e}") # Entfernt
+        super().destroy_node()
 
+# --- main bleibt unverändert ---
 def main(args=None):
-    rclpy.init(args=args)
-    node = StateMachine()
+    rclpy.init(args=args); node = None
     try:
+        node = StateMachine()
         rclpy.spin(node)
     except KeyboardInterrupt:
+        # if node: node.get_logger().info("KeyboardInterrupt received, shutting down.") # Entfernt
         pass
+    except Exception as e:
+        print(f"Unhandled exception in StateMachine: {e}", file=sys.stderr)
+        traceback.print_exc()
+        # if node: node.get_logger().error(f"Unhandled exception in StateMachine: {e}", exc_info=True) # Entfernt
     finally:
-        node.destroy_node()
-        if rclpy.ok():
-            rclpy.shutdown()
-
+        if node is not None: node.destroy_node()
+        if rclpy.ok(): rclpy.shutdown()
 
 if __name__ == '__main__':
     main()
