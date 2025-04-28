@@ -32,9 +32,9 @@ class LaneDetectionNode(Node):
         self.declare_parameter('center_factor', 0.03, float_desc("Center_Calc: factor"))
         self.declare_parameter('min_thickness', 2.5, ParameterDescriptor(type=ParameterType.PARAMETER_DOUBLE, description="Minimum thickness ratio", floating_point_range=[FloatingPointRange(from_value=0.01, to_value=200.0, step=0.001)]))
         self.declare_parameter('max_thickness', 5.0, ParameterDescriptor(type=ParameterType.PARAMETER_DOUBLE, description="Maximum thickness ratio", floating_point_range=[FloatingPointRange(from_value=0.01, to_value=200.0, step=0.001)]))
-        self.declare_parameter('roi_top_left_w', 0.2, float_desc("ROI TL Breite"))
+        self.declare_parameter('roi_top_left_w', 0.1, float_desc("ROI TL Breite"))
         self.declare_parameter('roi_top_left_h', 0.65, float_desc("ROI TL Höhe"))
-        self.declare_parameter('roi_top_right_w', 0.8, float_desc("ROI TR Breite"))
+        self.declare_parameter('roi_top_right_w', 0.9, float_desc("ROI TR Breite"))
         self.declare_parameter('roi_top_right_h', 0.65, float_desc("ROI TR Höhe"))
         self.declare_parameter('roi_bottom_left_w', 0.0, float_desc("ROI BL Breite"))
         self.declare_parameter('roi_bottom_left_h', 1., float_desc("ROI BL Höhe"))
@@ -67,8 +67,8 @@ class LaneDetectionNode(Node):
         # --- Plotting Aufrufe können Fehler verursachen, wenn keine GUI da ist ---
         # --- Sicherer: Nur plotten, wenn wirklich benötigt oder in try-except ---
         try:
-            self.lane_obj.plot_roi(plot=False) # plot=True nur zum Debuggen
-            self.lane_obj.perspective_transform(plot=False) # plot=True nur zum Debuggen
+            self.lane_obj.plot_roi(plot=True) # plot=True nur zum Debuggen
+            self.lane_obj.perspective_transform(plot=True) # plot=True nur zum Debuggen
         except Exception as plot_e:
              # Vermeide Absturz, falls GUI nicht verfügbar ist (z.B. in Docker ohne X11)
              # self.get_logger().warn(f"Plotting failed (GUI available?): {plot_e}", throttle_duration_sec=10) # Log entfernt
@@ -76,7 +76,7 @@ class LaneDetectionNode(Node):
 
         self.lane_obj.filter_lane_markings_by_thickness(plot=False, **current_params)
         self.histogram = self.lane_obj.calculate_histogram(plot=False)
-        self.left_fit, right_fit = self.lane_obj.get_lane_line_indices_sliding_windows(plot=False) # plot=True nur zum Debuggen
+        self.left_fit, right_fit = self.lane_obj.get_lane_line_indices_sliding_windows(plot=True) # plot=True nur zum Debuggen
 
         if self.left_fit is not None and right_fit is not None:
             self.lane_obj.get_lane_line_previous_window(self.left_fit, right_fit, plot=False)

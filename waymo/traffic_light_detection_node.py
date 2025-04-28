@@ -1,154 +1,196 @@
+# waymo/traffic_light_detection_node.py
+
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Bool
 from sensor_msgs.msg import CompressedImage
-import cv2
+from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
+import cv2, cv_bridge
 import numpy as np
-import time
+import sys
+import traceback
+import time # Import time für sleep
 
-
-class TrafficLightDetector(Node):
+# --- WICHTIG: Sicherstellen, dass der Klassenname korrekt ist, falls er SpecificColorDetector sein soll ---
+# Falls der Node tatsächlich traffic_light_detection_node heissen soll,
+# wäre es konsistenter, die Klasse auch so zu nennen (z.B. TrafficLightDetector)
+# Aktuell basiert der Code auf der Klasse 'SpecificColorDetector', wie von dir gepostet.
+class SpecificColorDetector(Node): # Oder TrafficLightDetector, wenn du umbenennst
     def __init__(self):
-        super().__init__('traffic_light_detector')
+        # --- Den Node-Namen hier anpassen, falls die Klasse umbenannt wird ---
+        super().__init__('specific_color_detector') # Oder 'traffic_light_detector'
+
+        qos_reliable = QoSProfile(
+            reliability=ReliabilityPolicy.RELIABLE,
+            history=HistoryPolicy.KEEP_LAST, depth=1
+        )
+        # QoS für Bilddaten
+        qos_sensor = QoSProfile(
+            reliability=ReliabilityPolicy.BEST_EFFORT,
+            history=HistoryPolicy.KEEP_LAST, depth=1
+        )
 
         self.subscription = self.create_subscription(
             CompressedImage,
             '/image_raw/compressed',
             self.image_callback,
-            10)
+            qos_sensor) # QoS für Sensor
 
-        self.publisher_ = self.create_publisher(Bool, 'traffic_light', 10)
+        self.publisher_ = self.create_publisher(Bool, 'traffic_light', qos_reliable)
 
-        self.previous_state = None
-        self.spotted_once = False
+        # --- FEHLENDES ATTRIBUT HINZUGEFÜGT ---
+        self.show_debug_windows = False # Auf True setzen, um Fenster anzuzeigen
+        # --- ---
 
-        self.frame_buffer = []  # Store recent filtered masks
-        self.last_update_time = time.time()
-
-        # === CONFIGURABLE ===
-        self.COMBINE_LAST_N = 2            # Number of frames to combine
-        self.INTER_FRAME_DELAY = 0.002      # Seconds to wait between processing frames
+        # Optional: Debug-Fenster nur erstellen, wenn aktiviert
+        if self.show_debug_windows:
+             try: # Fehler abfangen, falls GUI nicht verfügbar
+                 # Namen der Fenster können angepasst werden
+                 cv2.namedWindow('TrafficLight Mask (Blobs > 100px)', cv2.WINDOW_NORMAL)
+                 cv2.namedWindow('TrafficLight Overlay', cv2.WINDOW_NORMAL)
+             except Exception as e:
+                  # Minimales Logging bei Fehler
+                  print(f"WARNUNG [{self.get_name()}]: Konnte Debug-Fenster nicht erstellen: {e}", file=sys.stderr)
+                  self.show_debug_windows = False # Deaktiviere Fenster, wenn Erstellung fehlschlägt
 
     def image_callback(self, msg):
-        now = time.time()
-        if now - self.last_update_time < self.INTER_FRAME_DELAY:
-            return  # Skip frame if too soon
+        try:
+            np_arr = np.frombuffer(msg.data, np.uint8)
+            frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+            if frame is None: return # Frame nicht dekodierbar
 
-        self.last_update_time = now
+            h, w, _ = frame.shape
+            # ROI anpassen? Beispiel: Obere Hälfte
+            # Dies sollte evtl. ein Parameter sein, wie im früheren Code
+            frame_cropped = frame[0:int(h * 0.5), :]
 
-        # Decode the compressed image
-        np_arr = np.frombuffer(msg.data, np.uint8)
-        frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+            # Farbe erkennen
+            detected, filtered_mask = self.detect_specific_color(frame_cropped)
 
-        # Crop to ignore bottom 1/4 of the image
-        h, w, _ = frame.shape
-        frame_cropped = frame[0:int(h * 0.8), :]
+            # Debug-Fenster anzeigen (falls aktiviert)
+            if self.show_debug_windows:
+                try: # Fehler beim Anzeigen abfangen
+                    cv2.imshow('TrafficLight Mask (Blobs > 100px)', filtered_mask)
+                    # Vermeide Fehler, wenn frame_cropped leer ist
+                    if frame_cropped.size > 0:
+                         overlay = frame_cropped.copy()
+                         # Farbe für Overlay anpassen (z.B. Grün für erkannte Farbe)
+                         overlay[filtered_mask > 0] = (0, 255, 0)
+                         cv2.imshow('TrafficLight Overlay', overlay)
+                    cv2.waitKey(1)
+                except Exception as e:
+                     # Fehler beim Anzeigen loggen, aber weiterlaufen
+                     print(f"ERROR [{self.get_name()}] displaying debug windows: {e}", file=sys.stderr)
 
-        # Detect red light (returns the filtered B&W mask)
-        mask = self.detect_red_light(frame_cropped)
 
-        # Ensure frame_buffer is a list
-        if not isinstance(self.frame_buffer, list):
-            self.frame_buffer = []
+            # Status publizieren
+            # Wenn Farbe DETECTED -> Sende False (entspricht Rot/Stop)
+            # Wenn Farbe NICHT DETECTED -> Sende True (entspricht Grün/Go)
+            self.publisher_.publish(Bool(data=not detected))
 
-        self.frame_buffer.append(mask)
+        except Exception as e:
+             # Allgemeiner Fehler bei der Bildverarbeitung
+             print(f"ERROR [{self.get_name()}] in image_callback: {e}", file=sys.stderr)
+             traceback.print_exc(file=sys.stderr) # Zeige Traceback für Debugging
+             # Sende im Fehlerfall sicherheitshalber "Stop"?
+             # self.publisher_.publish(Bool(data=False))
 
-        # Keep only the last N frames
-        if len(self.frame_buffer) > self.COMBINE_LAST_N:
-            self.frame_buffer.pop(0)
 
-        # Only process once enough frames are collected
-        if len(self.frame_buffer) == self.COMBINE_LAST_N:
-            combined_mask = self.soft_combine_masks(self.frame_buffer)
-            is_red_light = np.any(combined_mask)
+    def detect_specific_color(self, frame):
+        """Erkennt eine spezifische Farbe und filtert nach Blob-Größe."""
+        detected = False
+        # Sicherstellen, dass filtered_mask die richtige Größe hat, auch wenn frame leer ist
+        if frame is None or frame.shape[0] == 0 or frame.shape[1] == 0:
+             # print(f"WARNUNG [{self.get_name()}]: detect_specific_color received empty frame.", file=sys.stderr) # Optional
+             return detected, np.array([[]], dtype=np.uint8) # Leere Maske zurückgeben
 
-            current_bool = not is_red_light
-            if current_bool != self.previous_state:
-                if not self.spotted_once and not current_bool:
-                    self.spotted_once = True
+        filtered_mask = np.zeros((frame.shape[0], frame.shape[1]), dtype=np.uint8)
 
-                self.publisher_.publish(Bool(data=current_bool))
-                # self.get_logger().info(
-                #     f"Traffic light is {'RED' if is_red_light else 'NOT RED'}")
-                self.previous_state = current_bool
+        try:
+            hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
-            cv2.imshow("Combined Filtered Structures", combined_mask)
-            cv2.waitKey(1)
+            # Farbe: #9e475f (Dunkles Pink/Magenta)
+            # Diese Werte sollten wahrscheinlich Parameter sein (wie im früheren Code)
+            lower = np.array([160, 50, 50])
+            upper = np.array([180, 255, 255])
 
-    def detect_red_light(self, frame):
-        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+            mask = cv2.inRange(hsv, lower, upper)
 
-        # Red detection ranges
-        lower_red1 = (0, 5, 190)
-        upper_red1 = (30, 255, 255)
-        lower_red2 = (150, 5, 190)
-        upper_red2 = (180, 255, 255)
+            # Morphologische Operationen können helfen
+            # kernel = np.ones((3,3),np.uint8)
+            # mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+            # mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
 
-        mask1 = cv2.inRange(hsv, lower_red1, upper_red1)
-        mask2 = cv2.inRange(hsv, lower_red2, upper_red2)
-        red_mask = mask1 | mask2
+            # Blobs extrahieren
+            num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(mask, connectivity=8)
 
-        # Brightness mask
-        v_channel = hsv[:, :, 2]
-        _, brightness_mask = cv2.threshold(
-            v_channel, 150, 255, cv2.THRESH_BINARY)
+            # Mindestfläche sollte Parameter sein
+            min_blob_area = 100
 
-        # Combine masks
-        combined_mask = cv2.bitwise_and(red_mask, brightness_mask)
+            if num_labels > 1: # Wenn mehr als nur der Hintergrund gefunden wurde
+                for label in range(1, num_labels):
+                    area = stats[label, cv2.CC_STAT_AREA]
+                    if area >= min_blob_area:
+                        filtered_mask[labels == label] = 255
+                        detected = True
+                        # break # Frühzeitig beenden, wenn ein Blob reicht?
 
-        # Filter by shape
-        filtered_mask = np.zeros_like(combined_mask)
-        contours, _ = cv2.findContours(
-            combined_mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        except cv2.error as cv_err:
+             # Spezifische OpenCV-Fehler abfangen
+             print(f"ERROR [{self.get_name()}] OpenCV error in detect_specific_color: {cv_err}", file=sys.stderr)
+        except Exception as e:
+             print(f"ERROR [{self.get_name()}] in detect_specific_color: {e}", file=sys.stderr)
+             traceback.print_exc(file=sys.stderr)
 
-        for cnt in contours:
-            area = cv2.contourArea(cnt)
-            if area > 5:
-                (x, y), radius = cv2.minEnclosingCircle(cnt)
-                circle_area = np.pi * radius * radius
-                shape_ratio = area / circle_area if circle_area > 0 else 0
-                if 0.6 < shape_ratio < 1.4:
-                    cv2.drawContours(
-                        filtered_mask, [cnt], -1, 255, thickness=cv2.FILLED)
-
-        return filtered_mask
-
-    def soft_combine_masks(self, masks):
-        """
-        Keep regions if they intersect even a bit with previous.
-        """
-        if not masks:
-            return np.zeros_like(masks[0])
-
-        combined = masks[0].copy()
-        for i in range(1, len(masks)):
-            overlap = cv2.bitwise_and(combined, masks[i])
-            keep_mask = cv2.threshold(overlap, 1, 255, cv2.THRESH_BINARY)[1]
-            # Only keep parts of current that overlap
-            new_combined = np.zeros_like(combined)
-            new_combined[keep_mask > 0] = masks[i][keep_mask > 0]
-            combined = new_combined.copy()
-
-        return combined
+        return detected, filtered_mask
 
     def destroy_node(self):
+        """Ressourcen freigeben."""
+        # print(f"INFO [{self.get_name()}]: Destroying node...", file=sys.stderr) # Log entfernt
+        if self.show_debug_windows:
+            try:
+                 cv2.destroyAllWindows()
+            except Exception: pass # Fehler ignorieren
+        # Publisher und Subscriber werden automatisch zerstört
         super().destroy_node()
 
-
+# --- main Funktion mit korrigiertem Shutdown ---
 def main(args=None):
     rclpy.init(args=args)
-    node = TrafficLightDetector()
-
+    node = None
+    node_name_for_log = SpecificColorDetector.__name__ # Oder fester String
     try:
+        # --- Hier den Klassennamen anpassen, falls geändert ---
+        node = SpecificColorDetector()
         rclpy.spin(node)
     except KeyboardInterrupt:
+        # print(f"INFO [{node_name_for_log}]: KeyboardInterrupt received.", file=sys.stderr) # Log entfernt
         pass
+    except Exception as e:
+         # Kritische Fehler weiterhin anzeigen
+         print(f"FATAL ERROR [{node_name_for_log}] in main: {e}", file=sys.stderr)
+         traceback.print_exc(file=sys.stderr)
     finally:
-        node.destroy_node()
-        if rclpy.ok():
-            rclpy.shutdown()
-        cv2.destroyAllWindows()
+        # Node zerstören, falls erstellt
+        if node is not None:
+            # Prüfen, ob Attribut existiert, bevor darauf zugegriffen wird
+            should_destroy_cv_windows = False
+            if hasattr(node, 'show_debug_windows') and node.show_debug_windows:
+                 should_destroy_cv_windows = True
+            # Zerstöre den Node (ruft node.destroy_node() auf)
+            node.destroy_node()
 
+        # rclpy nur herunterfahren, wenn es noch läuft
+        if rclpy.ok(): # <-- Wichtige Prüfung
+            rclpy.shutdown()
+
+        # Sicherstellen, dass Fenster geschlossen sind
+        if should_destroy_cv_windows:
+             try:
+                  # Kurze Pause kann helfen, damit Fenster sicher geschlossen werden
+                  # time.sleep(0.1) # Optional
+                  cv2.destroyAllWindows()
+             except Exception: pass
 
 if __name__ == '__main__':
     main()
