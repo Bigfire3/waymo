@@ -1,6 +1,6 @@
-## Robotics Project Summer Semester 2025: Team Waymo
+# Robotics Project Summer Semester 2025: Team Waymo
 
-**Project Milestones:**
+## **Project Milestones:**
 
 1. **[DONE]** Basic Lane Following & Obstacle Reaction
     * Follow detected lane lines.
@@ -23,13 +23,13 @@
 7. **[DONE]** Manual Pause Functionality
     * Added ability to pause and resume operation via keyboard command.
 
-# Task: Lane Following, Obstacle Detection, and Passing
+---
 
-This repository contains ROS2 nodes in Python for basic lane following, frontal obstacle detection, and automated obstacle passing maneuvers, inspired by autonomous driving functions. The package is designed for ROS2 Humble.
+This repository contains ROS2 nodes in Python for basic lane following, frontal obstacle detection, automated obstacle passing maneuvers, and automated parking maneuvers inspired by autonomous driving functions. The package is designed for ROS2 Humble.
 
 ---
 
-## Node Descriptions
+## **Node Descriptions**
 
 This package consists of several ROS2 nodes that work together:
 
