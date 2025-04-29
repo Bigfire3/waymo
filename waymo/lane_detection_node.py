@@ -67,8 +67,8 @@ class LaneDetectionNode(Node):
         # --- Plotting Aufrufe können Fehler verursachen, wenn keine GUI da ist ---
         # --- Sicherer: Nur plotten, wenn wirklich benötigt oder in try-except ---
         try:
-            self.lane_obj.plot_roi(plot=True) # plot=True nur zum Debuggen
-            self.lane_obj.perspective_transform(plot=True) # plot=True nur zum Debuggen
+            self.lane_obj.plot_roi(plot=False) # plot=True nur zum Debuggen
+            self.lane_obj.perspective_transform(plot=False) # plot=True nur zum Debuggen
         except Exception as plot_e:
              # Vermeide Absturz, falls GUI nicht verfügbar ist (z.B. in Docker ohne X11)
              # self.get_logger().warn(f"Plotting failed (GUI available?): {plot_e}", throttle_duration_sec=10) # Log entfernt
@@ -76,7 +76,7 @@ class LaneDetectionNode(Node):
 
         self.lane_obj.filter_lane_markings_by_thickness(plot=False, **current_params)
         self.histogram = self.lane_obj.calculate_histogram(plot=False)
-        self.left_fit, right_fit = self.lane_obj.get_lane_line_indices_sliding_windows(plot=True) # plot=True nur zum Debuggen
+        self.left_fit, right_fit = self.lane_obj.get_lane_line_indices_sliding_windows(plot=False) # plot=True nur zum Debuggen
 
         if self.left_fit is not None and right_fit is not None:
             self.lane_obj.get_lane_line_previous_window(self.left_fit, right_fit, plot=False)
