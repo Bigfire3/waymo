@@ -5,191 +5,192 @@ from rclpy.node import Node
 from std_msgs.msg import Bool
 from sensor_msgs.msg import CompressedImage
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
-import cv2, cv_bridge
+import cv2
+# import cv_bridge # Nicht verwendet
 import numpy as np
 import sys
 import traceback
-import time # Import time für sleep
+import time
 
-# --- WICHTIG: Sicherstellen, dass der Klassenname korrekt ist, falls er SpecificColorDetector sein soll ---
-# Falls der Node tatsächlich traffic_light_detection_node heissen soll,
-# wäre es konsistenter, die Klasse auch so zu nennen (z.B. TrafficLightDetector)
-# Aktuell basiert der Code auf der Klasse 'SpecificColorDetector', wie von dir gepostet.
-class SpecificColorDetector(Node): # Oder TrafficLightDetector, wenn du umbenennst
+# --- NEU: Imports für Parameter ---
+from rcl_interfaces.msg import ParameterDescriptor, SetParametersResult, ParameterType, IntegerRange, FloatingPointRange
+from rclpy.parameter import Parameter
+# --- Ende NEU ---
+
+# --- Klasse und Node-Name konsistent gemacht ---
+class TrafficLightDetector(Node):
     def __init__(self):
-        # --- Den Node-Namen hier anpassen, falls die Klasse umbenannt wird ---
-        super().__init__('specific_color_detector') # Oder 'traffic_light_detector'
+        super().__init__('traffic_light_detection_node') # Node-Name angepasst
 
+        # --- QoS Profile ---
         qos_reliable = QoSProfile(
             reliability=ReliabilityPolicy.RELIABLE,
             history=HistoryPolicy.KEEP_LAST, depth=1
         )
-        # QoS für Bilddaten
         qos_sensor = QoSProfile(
             reliability=ReliabilityPolicy.BEST_EFFORT,
             history=HistoryPolicy.KEEP_LAST, depth=1
         )
 
+        # --- NEU: Parameter Descriptors ---
+        def int_desc(desc, min_val=0, max_val=255, step=1):
+            return ParameterDescriptor(
+                type=ParameterType.PARAMETER_INTEGER, description=desc,
+                integer_range=[IntegerRange(from_value=min_val, to_value=max_val, step=step)])
+        def int_area_desc(desc, min_val=0, max_val=5000, step=1):
+             return ParameterDescriptor(
+                type=ParameterType.PARAMETER_INTEGER, description=desc,
+                integer_range=[IntegerRange(from_value=min_val, to_value=max_val, step=step)])
+        # --- Ende NEU ---
+
+        # --- NEU: Parameter Deklarationen HIER in __init__ ---
+        # Standardwerte für dunkles Magenta (#610A1F), ca. H=173, S=229, V=97
+        # Hinweis: Da H nahe 180 liegt, könnte ein zweiter Bereich um H=0 nötig sein,
+        # falls die Farbe im Bild leicht variiert. Vorerst nur ein Bereich.
+        self.declare_parameter('hsv_lower_h', 160, int_desc("Lower Hue (0-180)", max_val=180))
+        self.declare_parameter('hsv_lower_s', 0, int_desc("Lower Saturation (0-255)"))
+        self.declare_parameter('hsv_lower_v', 0, int_desc("Lower Value (0-255)"))
+        self.declare_parameter('hsv_upper_h', 180, int_desc("Upper Hue (0-180)", max_val=180))
+        self.declare_parameter('hsv_upper_s', 255, int_desc("Upper Saturation (0-255)"))
+        self.declare_parameter('hsv_upper_v', 255, int_desc("Upper Value (0-255)"))
+
+        self.declare_parameter('min_blob_area', 100, int_area_desc("Minimum Blob Area (pixels)"))
+        self.declare_parameter('roi_crop_factor_h', 0.5, ParameterDescriptor(type=ParameterType.PARAMETER_DOUBLE, description="ROI Crop Factor Height (0.1-1.0)", floating_point_range=[FloatingPointRange(from_value=0.1, to_value=1.0, step=0.05)]))
+
+        # --- Ende NEU ---
+
+        # Subscriber und Publisher
         self.subscription = self.create_subscription(
             CompressedImage,
             '/image_raw/compressed',
             self.image_callback,
-            qos_sensor) # QoS für Sensor
+            qos_sensor)
 
         self.publisher_ = self.create_publisher(Bool, 'traffic_light', qos_reliable)
 
-        # --- FEHLENDES ATTRIBUT HINZUGEFÜGT ---
-        self.show_debug_windows = False # Auf True setzen, um Fenster anzuzeigen
-        # --- ---
-
-        # Optional: Debug-Fenster nur erstellen, wenn aktiviert
+        self.show_debug_windows = False # Auf True setzen für Debug-Fenster
         if self.show_debug_windows:
-             try: # Fehler abfangen, falls GUI nicht verfügbar
-                 # Namen der Fenster können angepasst werden
-                 cv2.namedWindow('TrafficLight Mask (Blobs > 100px)', cv2.WINDOW_NORMAL)
+             try:
+                 cv2.namedWindow('TrafficLight Mask', cv2.WINDOW_NORMAL)
                  cv2.namedWindow('TrafficLight Overlay', cv2.WINDOW_NORMAL)
              except Exception as e:
-                  # Minimales Logging bei Fehler
                   print(f"WARNUNG [{self.get_name()}]: Konnte Debug-Fenster nicht erstellen: {e}", file=sys.stderr)
-                  self.show_debug_windows = False # Deaktiviere Fenster, wenn Erstellung fehlschlägt
+                  self.show_debug_windows = False
 
     def image_callback(self, msg):
         try:
             np_arr = np.frombuffer(msg.data, np.uint8)
             frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
-            if frame is None: return # Frame nicht dekodierbar
+            if frame is None: return
 
             h, w, _ = frame.shape
-            # ROI anpassen? Beispiel: Obere Hälfte
-            # Dies sollte evtl. ein Parameter sein, wie im früheren Code
-            frame_cropped = frame[0:int(h * 0.5), :]
+            # ROI aus Parameter holen
+            roi_crop_factor = self.get_parameter('roi_crop_factor_h').value
+            frame_cropped = frame[0:int(h * roi_crop_factor), :]
 
-            # Farbe erkennen
-            detected, filtered_mask = self.detect_specific_color(frame_cropped)
+            # Farbe erkennen (nutzt jetzt Parameter intern)
+            detected, filtered_mask = self.detect_target_color(frame_cropped)
 
-            # Debug-Fenster anzeigen (falls aktiviert)
             if self.show_debug_windows:
-                try: # Fehler beim Anzeigen abfangen
-                    cv2.imshow('TrafficLight Mask (Blobs > 100px)', filtered_mask)
-                    # Vermeide Fehler, wenn frame_cropped leer ist
+                try:
+                    cv2.imshow('TrafficLight Mask', filtered_mask)
                     if frame_cropped.size > 0:
                          overlay = frame_cropped.copy()
-                         # Farbe für Overlay anpassen (z.B. Grün für erkannte Farbe)
-                         overlay[filtered_mask > 0] = (0, 255, 0)
+                         overlay[filtered_mask > 0] = (0, 255, 0) # Grün Overlay
                          cv2.imshow('TrafficLight Overlay', overlay)
                     cv2.waitKey(1)
                 except Exception as e:
-                     # Fehler beim Anzeigen loggen, aber weiterlaufen
                      print(f"ERROR [{self.get_name()}] displaying debug windows: {e}", file=sys.stderr)
 
-
-            # Status publizieren
-            # Wenn Farbe DETECTED -> Sende False (entspricht Rot/Stop)
-            # Wenn Farbe NICHT DETECTED -> Sende True (entspricht Grün/Go)
+            # Status publizieren: False WENN Farbe erkannt wird (Stop)
             self.publisher_.publish(Bool(data=not detected))
 
         except Exception as e:
-             # Allgemeiner Fehler bei der Bildverarbeitung
              print(f"ERROR [{self.get_name()}] in image_callback: {e}", file=sys.stderr)
-             traceback.print_exc(file=sys.stderr) # Zeige Traceback für Debugging
-             # Sende im Fehlerfall sicherheitshalber "Stop"?
-             # self.publisher_.publish(Bool(data=False))
+             traceback.print_exc(file=sys.stderr)
 
-
-    def detect_specific_color(self, frame):
-        """Erkennt eine spezifische Farbe und filtert nach Blob-Größe."""
+    def detect_target_color(self, frame):
+        """Erkennt die konfigurierte Zielfarbe und filtert nach Blob-Größe."""
         detected = False
-        # Sicherstellen, dass filtered_mask die richtige Größe hat, auch wenn frame leer ist
         if frame is None or frame.shape[0] == 0 or frame.shape[1] == 0:
-             # print(f"WARNUNG [{self.get_name()}]: detect_specific_color received empty frame.", file=sys.stderr) # Optional
-             return detected, np.array([[]], dtype=np.uint8) # Leere Maske zurückgeben
+             return detected, np.array([[]], dtype=np.uint8)
 
         filtered_mask = np.zeros((frame.shape[0], frame.shape[1]), dtype=np.uint8)
 
         try:
+            # --- Parameter HIER abrufen ---
+            h_l = self.get_parameter('hsv_lower_h').value
+            s_l = self.get_parameter('hsv_lower_s').value
+            v_l = self.get_parameter('hsv_lower_v').value
+            h_u = self.get_parameter('hsv_upper_h').value
+            s_u = self.get_parameter('hsv_upper_s').value
+            v_u = self.get_parameter('hsv_upper_v').value
+            min_blob_area = self.get_parameter('min_blob_area').value
+            # --- ---
+
             hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
-            # Farbe: #9e475f (Dunkles Pink/Magenta)
-            # Diese Werte sollten wahrscheinlich Parameter sein (wie im früheren Code)
-            lower = np.array([160, 50, 50])
-            upper = np.array([180, 255, 255])
+            # --- HSV-Bereich aus Parametern ---
+            lower = np.array([h_l, s_l, v_l])
+            upper = np.array([h_u, s_u, v_u])
+            # --- ---
 
             mask = cv2.inRange(hsv, lower, upper)
 
-            # Morphologische Operationen können helfen
+            # Morphologische Operationen (optional, könnten Parameter sein)
             # kernel = np.ones((3,3),np.uint8)
-            # mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
-            # mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+            # mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel, iterations=1)
+            # mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=1)
 
             # Blobs extrahieren
             num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(mask, connectivity=8)
 
-            # Mindestfläche sollte Parameter sein
-            min_blob_area = 100
-
-            if num_labels > 1: # Wenn mehr als nur der Hintergrund gefunden wurde
+            if num_labels > 1:
                 for label in range(1, num_labels):
                     area = stats[label, cv2.CC_STAT_AREA]
                     if area >= min_blob_area:
                         filtered_mask[labels == label] = 255
                         detected = True
-                        # break # Frühzeitig beenden, wenn ein Blob reicht?
+                        # break # Frühzeitig beenden?
 
         except cv2.error as cv_err:
-             # Spezifische OpenCV-Fehler abfangen
-             print(f"ERROR [{self.get_name()}] OpenCV error in detect_specific_color: {cv_err}", file=sys.stderr)
+             print(f"ERROR [{self.get_name()}] OpenCV error in detect_target_color: {cv_err}", file=sys.stderr)
         except Exception as e:
-             print(f"ERROR [{self.get_name()}] in detect_specific_color: {e}", file=sys.stderr)
+             print(f"ERROR [{self.get_name()}] in detect_target_color: {e}", file=sys.stderr)
              traceback.print_exc(file=sys.stderr)
 
         return detected, filtered_mask
 
     def destroy_node(self):
-        """Ressourcen freigeben."""
-        # print(f"INFO [{self.get_name()}]: Destroying node...", file=sys.stderr) # Log entfernt
         if self.show_debug_windows:
-            try:
-                 cv2.destroyAllWindows()
-            except Exception: pass # Fehler ignorieren
-        # Publisher und Subscriber werden automatisch zerstört
+            try: cv2.destroyAllWindows()
+            except Exception: pass
         super().destroy_node()
 
-# --- main Funktion mit korrigiertem Shutdown ---
 def main(args=None):
     rclpy.init(args=args)
     node = None
-    node_name_for_log = SpecificColorDetector.__name__ # Oder fester String
+    # --- Node-Name für Log angepasst ---
+    node_name_for_log = 'TrafficLightDetector'
     try:
-        # --- Hier den Klassennamen anpassen, falls geändert ---
-        node = SpecificColorDetector()
+        # --- Klassenname angepasst ---
+        node = TrafficLightDetector()
         rclpy.spin(node)
     except KeyboardInterrupt:
-        # print(f"INFO [{node_name_for_log}]: KeyboardInterrupt received.", file=sys.stderr) # Log entfernt
         pass
     except Exception as e:
-         # Kritische Fehler weiterhin anzeigen
          print(f"FATAL ERROR [{node_name_for_log}] in main: {e}", file=sys.stderr)
          traceback.print_exc(file=sys.stderr)
     finally:
-        # Node zerstören, falls erstellt
         if node is not None:
-            # Prüfen, ob Attribut existiert, bevor darauf zugegriffen wird
             should_destroy_cv_windows = False
             if hasattr(node, 'show_debug_windows') and node.show_debug_windows:
                  should_destroy_cv_windows = True
-            # Zerstöre den Node (ruft node.destroy_node() auf)
             node.destroy_node()
-
-        # rclpy nur herunterfahren, wenn es noch läuft
-        if rclpy.ok(): # <-- Wichtige Prüfung
+        if rclpy.ok():
             rclpy.shutdown()
-
-        # Sicherstellen, dass Fenster geschlossen sind
         if should_destroy_cv_windows:
-             try:
-                  # Kurze Pause kann helfen, damit Fenster sicher geschlossen werden
-                  # time.sleep(0.1) # Optional
-                  cv2.destroyAllWindows()
+             try: cv2.destroyAllWindows()
              except Exception: pass
 
 if __name__ == '__main__':
