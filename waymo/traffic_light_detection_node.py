@@ -53,21 +53,28 @@ class TrafficLightDetector(Node):
              return ParameterDescriptor(type=ParameterType.PARAMETER_BOOL, description=desc)
 
 
-        # --- Parameter Deklarationen (basierend auf deiner "alten" Datei) ---
-        self.declare_parameter('hsv_lower_h', 160, int_desc("Lower Hue (0-180)", max_val=180))
-        self.declare_parameter('hsv_lower_s', 0, int_desc("Lower Saturation (0-255)")) # War 50 im Original, du hattest 0
-        self.declare_parameter('hsv_lower_v', 0, int_desc("Lower Value (0-255)")) # War 50 im Original, du hattest 0
-        self.declare_parameter('hsv_upper_h', 180, int_desc("Upper Hue (0-180)", max_val=180))
+        # --- Parameter Deklarationen ---
+        # ... (andere Parameter wie zuvor) ...
+        # NEU: Parameter für Rotbereich 1 (niedrige Hue Werte)
+        self.declare_parameter('hsv_lower_h1', 0, int_desc("Lower Hue 1 (0-180)", max_val=180))
+        self.declare_parameter('hsv_upper_h1', 10, int_desc("Upper Hue 1 (0-180)", max_val=180))
+        # NEU: Parameter für Rotbereich 2 (hohe Hue Werte)
+        self.declare_parameter('hsv_lower_h2', 160, int_desc("Lower Hue 2 (0-180)", max_val=180))
+        self.declare_parameter('hsv_upper_h2', 180, int_desc("Upper Hue 2 (0-180)", max_val=180))
+        # Gemeinsame S und V Parameter
+        self.declare_parameter('hsv_lower_s', 50, int_desc("Lower Saturation (0-255)")) # Startwert erhöht
+        self.declare_parameter('hsv_lower_v', 10, int_desc("Lower Value (0-255)"))     # Startwert erhöht
         self.declare_parameter('hsv_upper_s', 255, int_desc("Upper Saturation (0-255)"))
-        self.declare_parameter('hsv_upper_v', 255, int_desc("Upper Value (0-255)"))
-        self.declare_parameter('min_blob_area', 100, int_area_desc("Minimum Blob Area (pixels)"))
-        # roi_crop_factor_h: Schrittweite 0.05 laut Original, Standardwert 0.5 ist gültig
-        self.declare_parameter('roi_crop_factor_h', 0.5, ParameterDescriptor(type=ParameterType.PARAMETER_DOUBLE, description="ROI Crop Factor Height (0.1-1.0)", floating_point_range=[FloatingPointRange(from_value=0.1, to_value=1.0, step=0.05)]))
+        self.declare_parameter('hsv_upper_v', 255, int_desc("Upper Value (0-255)"))     # Oberen Wert evtl. anpassen
+        # Blob Area
+        self.declare_parameter('min_blob_area', 90, int_area_desc("Minimum Blob Area (pixels)")) # Angepasster Startwert
+        self.declare_parameter('max_blob_area', 500, int_area_desc("Maximum Blob Area (pixels)"))# Deutlich erhöht
+        # ROI
+        self.declare_parameter('roi_crop_factor_h', 0.6, ParameterDescriptor(type=ParameterType.PARAMETER_DOUBLE, description="ROI Crop Factor Height (0.1-1.0)", floating_point_range=[FloatingPointRange(from_value=0.1, to_value=1.0, step=0.05)]))
 
-        # --- HINZUGEFÜGT: Parameter zum Steuern der Debug-Publisher ---
+        # Debug Publisher Flags
         self.declare_parameter('publish_mask', True, bool_desc("Publish filtered color mask image"))
         self.declare_parameter('publish_overlay', True, bool_desc("Publish color detection overlay image"))
-        # --- Ende HINZUGEFÜGT ---
 
         # Subscriber und Publisher
         self.subscription = self.create_subscription(
@@ -141,7 +148,7 @@ class TrafficLightDetector(Node):
              self.get_logger().error(traceback.format_exc())
 
     def detect_target_color(self, frame):
-        """Erkennt die konfigurierte Zielfarbe und filtert nach Blob-Größe."""
+        """Erkennt Rot robust über zwei HSV-Bereiche und filtert nach Blob-Größe."""
         detected = False
         if frame is None or frame.shape[0] == 0 or frame.shape[1] == 0:
              return detected, np.array([[]], dtype=np.uint8)
@@ -150,29 +157,59 @@ class TrafficLightDetector(Node):
 
         try:
             # Parameter abrufen
-            h_l = self.get_parameter('hsv_lower_h').value
+            # HIER: Passe die Parameter für Rot an! Siehe Vorschläge unten.
+            # Bereich 1 (niedrige H-Werte, z.B. 0-10)
+            h_l1 = self.get_parameter('hsv_lower_h1').value # NEUER PARAMETER
             s_l = self.get_parameter('hsv_lower_s').value
             v_l = self.get_parameter('hsv_lower_v').value
-            h_u = self.get_parameter('hsv_upper_h').value
+            h_u1 = self.get_parameter('hsv_upper_h1').value # NEUER PARAMETER
             s_u = self.get_parameter('hsv_upper_s').value
             v_u = self.get_parameter('hsv_upper_v').value
+            # Bereich 2 (hohe H-Werte, z.B. 170-180)
+            h_l2 = self.get_parameter('hsv_lower_h2').value # NEUER PARAMETER
+            # s_l, v_l, s_u, v_u sind gleich für beide Bereiche
+            h_u2 = self.get_parameter('hsv_upper_h2').value # NEUER PARAMETER
+
             min_blob_area = self.get_parameter('min_blob_area').value
+            max_blob_area = self.get_parameter('max_blob_area').value
 
+            # Optional: Preprocessing
+            # frame_blurred = cv2.GaussianBlur(frame, (5, 5), 0)
+            # hsv = cv2.cvtColor(frame_blurred, cv2.COLOR_BGR2HSV)
             hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-            lower = np.array([h_l, s_l, v_l])
-            upper = np.array([h_u, s_u, v_u])
-            mask = cv2.inRange(hsv, lower, upper)
 
-            # Blobs extrahieren
-            num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(mask, connectivity=8)
+            # Erstelle Masken für beide Rot-Bereiche
+            lower1 = np.array([h_l1, s_l, v_l])
+            upper1 = np.array([h_u1, s_u, v_u])
+            mask1 = cv2.inRange(hsv, lower1, upper1)
+
+            lower2 = np.array([h_l2, s_l, v_l])
+            upper2 = np.array([h_u2, s_u, v_u])
+            mask2 = cv2.inRange(hsv, lower2, upper2)
+
+            # Kombiniere beide Masken
+            mask = cv2.bitwise_or(mask1, mask2)
+
+            # Morphologische Operationen (Kernelgröße kann angepasst werden)
+            kernel_size = 3 # oder 5
+            kernel = np.ones((kernel_size, kernel_size), np.uint8)
+            mask_opened = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel, iterations=1)
+            mask_closed = cv2.morphologyEx(mask_opened, cv2.MORPH_CLOSE, kernel, iterations=1)
+
+            # Finale Maske für Blob-Erkennung
+            final_mask = mask_closed
+
+            # Blobs extrahieren aus der gesäuberten Maske
+            num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(final_mask, connectivity=8)
 
             if num_labels > 1:
                 for label in range(1, num_labels):
                     area = stats[label, cv2.CC_STAT_AREA]
-                    if area >= min_blob_area:
+                    # Verwende min UND max area filter
+                    if area >= min_blob_area and area <= max_blob_area:
                         filtered_mask[labels == label] = 255
                         detected = True
-                        # break # Nicht auskommentieren für vollständige Maske
+                        # break # Nicht breaken, um alle gültigen Blobs in filtered_mask zu haben
 
         except cv2.error as cv_err:
              self.get_logger().error(f"OpenCV error in detect_target_color: {cv_err}", throttle_duration_sec=10)
@@ -180,6 +217,8 @@ class TrafficLightDetector(Node):
              self.get_logger().error(f"Error in detect_target_color: {e}", throttle_duration_sec=10)
              self.get_logger().error(traceback.format_exc())
 
+        # Gib die *gefilterte* Maske zurück (nur Blobs der richtigen Größe)
+        # oder final_mask, wenn du alle erkannten roten Bereiche vor dem Größenfilter sehen willst.
         return detected, filtered_mask
 
     def destroy_node(self):
