@@ -125,7 +125,7 @@ class Lane:
 
         # Kamera als Bildmitte annehmen
         car_location = self.orig_frame.shape[1] / 2
-        pixel_offset = self.current_center - car_location
+        pixel_offset = abs(car_location) - abs(self.current_center)
         center_factor = params.get('center_factor', 0.03) # Standardwert wie im Original-Node
         center_offset_calculated = pixel_offset * center_factor
 

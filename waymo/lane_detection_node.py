@@ -34,7 +34,7 @@ class LaneDetectionNode(Node):
 
         # --- Parameter Deklarationen (basierend auf deiner "alten" Datei) ---
         self.declare_parameter('block_size', 11, int_desc("Auto-S: block_size"))
-        self.declare_parameter('c_value', 200, int_desc("Auto-S: c_value")) # War 200 im Original-Code, 20 in deiner Datei
+        self.declare_parameter('c_value', 20, int_desc("Auto-S: c_value"))
         self.declare_parameter('center_factor', 0.03, float_desc("Center_Calc: factor")) # Schrittweite 0.001
         # Beachte: min/max thickness hatten step=0.001, daher keine Rundung nötig für Standardwerte 2.5 und 5.0
         self.declare_parameter('min_thickness', 2.5, ParameterDescriptor(type=ParameterType.PARAMETER_DOUBLE, description="Minimum thickness ratio", floating_point_range=[FloatingPointRange(from_value=0.01, to_value=200.0, step=0.001)]))

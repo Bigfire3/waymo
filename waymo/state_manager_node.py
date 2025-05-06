@@ -145,7 +145,7 @@ class StateMachine(rclpy.node.Node):
             angular_z = self.center_offset
             max_angular_z = 1.0
             angular_z = np.clip(angular_z, -max_angular_z, max_angular_z)
-            # self.send_cmd_vel(driving_speed, angular_z)
+            self.send_cmd_vel(driving_speed, angular_z)
         elif self.state in [STATE_STOPPED_AT_OBSTACLE, STATE_STOPPED_AT_TRAFFIC_LIGHT]:
             self.send_cmd_vel(0.0, 0.0)
         elif self.state == STATE_PASSING_OBSTACLE:
