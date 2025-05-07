@@ -41,6 +41,7 @@ class LaneDetectionNode(Node):
         self.declare_parameter('roi_bottom_right_w', 1.0, float_desc("ROI BR Breite"))
         self.declare_parameter('roi_bottom_right_h', 1.0, float_desc("ROI BR Höhe"))
         self.declare_parameter('desired_roi_padding_factor', 0.25, float_desc("Ziel ROI Padding", max_val=0.4, step=0.01))
+        self.declare_parameter('min_compactness', 0.8, float_desc("min_compactness"))
 
         # --- QoS und Subscriber/Publisher (unverändert) ---
         qos_policy = QoSProfile(reliability=ReliabilityPolicy.BEST_EFFORT, history=HistoryPolicy.KEEP_LAST, depth=1)
@@ -74,9 +75,9 @@ class LaneDetectionNode(Node):
              # self.get_logger().warn(f"Plotting failed (GUI available?): {plot_e}", throttle_duration_sec=10) # Log entfernt
              pass
 
-        self.lane_obj.filter_lane_markings_by_thickness(plot=False, **current_params)
+        self.lane_obj.filter_lane_markings_by_thickness(plot=True, **current_params)
         self.histogram = self.lane_obj.calculate_histogram(plot=False)
-        self.left_fit, right_fit = self.lane_obj.get_lane_line_indices_sliding_windows(plot=False) # plot=True nur zum Debuggen
+        self.left_fit, right_fit = self.lane_obj.get_lane_line_indices_sliding_windows(plot=True) # plot=True nur zum Debuggen
 
         if self.left_fit is not None and right_fit is not None:
             self.lane_obj.get_lane_line_previous_window(self.left_fit, right_fit, plot=False)

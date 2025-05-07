@@ -413,32 +413,51 @@ class Lane:
                 self.desired_roi_points)], True, (147, 20, 255), 3)
             cv2.imshow('Warped Image', warped_plot)
     
-    def filter_lane_markings_by_thickness(self, plot=False, **params):       
-        if (self.warped_frame is None):
+    def filter_lane_markings_by_thickness(self, plot=False, **params):
+        if self.warped_frame is None:
             return
-        
-        min_thickness = params.get('min_thickness')
-        max_thickness = params.get('max_thickness')
 
-        contours, _ = cv2.findContours(self.warped_frame, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        filtered_mask = np.zeros_like(self.warped_frame)
+        min_thickness   = params['min_thickness']
+        max_thickness   = params['max_thickness']
+        min_compactness = params.get('min_compactness')
 
-        for contour in contours:
-            area = cv2.contourArea(contour)
-            perimeter = cv2.arcLength(contour, True)
-            if perimeter == 0:
+        # (optional) grobe Opening-Glättung
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (7,7))
+        smooth = cv2.morphologyEx(self.warped_frame,
+                                  cv2.MORPH_OPEN,
+                                  kernel,
+                                  iterations=1)
+
+        contours, _ = cv2.findContours(smooth,
+                                       cv2.RETR_EXTERNAL,
+                                       cv2.CHAIN_APPROX_SIMPLE)
+        filtered = np.zeros_like(self.warped_frame)
+
+        for cnt in contours:
+            area = cv2.contourArea(cnt)
+            peri = cv2.arcLength(cnt, True)
+            if peri == 0:
                 continue
-            thickness = area / perimeter
 
-            if min_thickness <= thickness <= max_thickness:
-                cv2.drawContours(
-                    filtered_mask, [contour], -1, 255, thickness=cv2.FILLED)
+            # 1) Thickness-Filter
+            thickness = area / peri
+            if not (min_thickness <= thickness <= max_thickness):
+                continue
 
-        self.filtered_warped_frame = filtered_mask
+            # 2) Compactness-Filter
+            compactness = 4 * np.pi * area / (peri*peri + 1e-6)
+            if compactness < min_compactness:
+                continue
+
+            # OK: fülle Maske
+            cv2.drawContours(filtered, [cnt], -1, 255, cv2.FILLED)
+
+        self.filtered_warped_frame = filtered
 
         if plot:
-            cv2.imshow("Filtered Lane Markings", filtered_mask)
+            cv2.imshow("Filtered Lane Markings", filtered)
             cv2.waitKey(1)
+
 
     def plot_roi(self, frame=None, plot=False):
         if not plot:
