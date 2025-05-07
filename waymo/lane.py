@@ -49,6 +49,32 @@ class Lane:
         # --- Ende NEU ---
 
     def update_frame(self, orig_frame, **params):
+        # --- Initial Reflection Filtering mit konfigurierbaren Parametern ---
+        # Blur-Kernel (immer ungerade)
+        kb = params.get('reflection_blur_ksize', 5)
+        blur_ksize = int(kb) | 1
+        # Canny-Schwellen
+        canny_low  = params.get('reflection_canny_low_thresh', 50)
+        canny_high = params.get('reflection_canny_high_thresh', 150)
+        # Morphologisches Closing-Kernel (immer ungerade)
+        kc = params.get('reflection_close_kernel', 5)
+        close_ksize = int(kc) | 1
+
+        gray  = cv2.cvtColor(orig_frame, cv2.COLOR_BGR2GRAY)
+        blur  = cv2.GaussianBlur(gray, (blur_ksize, blur_ksize), 0)
+        edges = cv2.Canny(blur, int(canny_low), int(canny_high))
+
+        cnts, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+        mask = np.zeros_like(gray)
+        cv2.drawContours(mask, cnts, -1, 255, cv2.FILLED)
+
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (close_ksize, close_ksize))
+        mask   = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+
+        inv_mask   = cv2.bitwise_not(mask)
+        orig_frame = cv2.bitwise_and(orig_frame, orig_frame, mask=inv_mask)
+        # --- Ende Initial Filtering ---
+        
         self.orig_frame = orig_frame
 
         # Bild mit den Fahrspurlinien (binär)

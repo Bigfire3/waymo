@@ -60,6 +60,12 @@ class LaneDetectionNode(Node):
         self.declare_parameter('publish_roi_image', True, bool_desc("Publish ROI visualization image"))
         # --- Ende HINZUGEFÜGT ---
 
+        # z.B. direkt nach den anderen declare_parameter-Aufrufen:
+        self.declare_parameter('reflection_blur_ksize',      5,   float_desc("Blur-Kernel-Größe für Reflexions-Filter"))
+        self.declare_parameter('reflection_canny_low_thresh', 50,  float_desc("Canny Untergrenze für Reflexions-Filter"))
+        self.declare_parameter('reflection_canny_high_thresh',150, float_desc("Canny Obergrenze für Reflexions-Filter"))
+        self.declare_parameter('reflection_close_kernel',     5,   float_desc("Kernel-Größe für Closing im Reflexions-Filter"))
+
 
         # --- QoS und Subscriber/Publisher ---
         qos_sensor_data = QoSProfile(reliability=ReliabilityPolicy.BEST_EFFORT, history=HistoryPolicy.KEEP_LAST, depth=1)
