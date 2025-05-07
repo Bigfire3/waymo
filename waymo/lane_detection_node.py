@@ -49,6 +49,7 @@ class LaneDetectionNode(Node):
         self.declare_parameter('roi_bottom_right_h', 1.0, float_desc("ROI BR Höhe")) # Schrittweite 0.001
         # desired_roi_padding_factor hat step=0.01, Standardwert 0.25 ist gültig
         self.declare_parameter('desired_roi_padding_factor', 0.25, float_desc("Ziel ROI Padding", max_val=0.4, step=0.01))
+        self.declare_parameter('min_compactness', 0.8, float_desc("min_compactness"))
 
         # --- HINZUGEFÜGT: Parameter zum Steuern der Debug-Publisher ---
         self.declare_parameter('publish_lane_annotated', True, bool_desc("Publish final annotated lane image"))
