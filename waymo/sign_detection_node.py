@@ -80,7 +80,7 @@ class SignDetectionNode(Node):
             min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
 
             # Wenn das Template gut erkannt wurde, zeichne ein Rechteck und markiere es
-            if max_val > 0.1:  # Schwellenwert anpassen, je nach Anforderungen
+            if max_val > 0.6:  # Schwellenwert anpassen, je nach Anforderungen
                 top_left = max_loc
                 bottom_right = (top_left[0] + w, top_left[1] + h)
 
@@ -96,7 +96,7 @@ class SignDetectionNode(Node):
 
                 # Schreibe den Key des Dictionaries (Name des Templates) über das Rechteck
                 font = cv2.FONT_HERSHEY_SIMPLEX
-                cv2.putText(image, template_name, (top_left[0], top_left[1] - 10), font, 0.7, color, 2, cv2.LINE_AA)
+                cv2.putText(image, template_name + " " + str(max_val), (top_left[0], top_left[1] - 10), font, 0.7, color, 2, cv2.LINE_AA)
 
         # Zeige das Ergebnis an
         cv2.imshow('Sign Detection', image)
