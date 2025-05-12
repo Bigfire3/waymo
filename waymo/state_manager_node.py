@@ -20,13 +20,14 @@ STATE_FOLLOW_LANE = 'FOLLOW_LANE'
 STATE_STOPPED_AT_OBSTACLE = 'STOPPED_AT_OBSTACLE'
 STATE_PASSING_OBSTACLE = 'PASSING_OBSTACLE'
 STATE_STOPPED_AT_TRAFFIC_LIGHT = 'STOPPED_AT_TRAFFIC_LIGHT'
+STATE_STOPPED_AT_PARKING_SIGN = 'STOPPED_AT_PARKING_SIGN'
 
 
 class StateMachine(rclpy.node.Node):
 
     def __init__(self):
         super().__init__('state_manager_node')
-        self.declare_parameter('drivingspeed', 0.15)
+        self.declare_parameter('drivingspeed', 0.05)
 
         # Interne Variablen
         self.center_offset = 0.0
@@ -36,6 +37,7 @@ class StateMachine(rclpy.node.Node):
         self.traffic_light_is_red = True
         self.obstacle_just_passed = False
         self.initial_traffic_light_check_done = False
+        self.parking_sign_detected = False
 
         # QoS Profile
         qos_sensor = QoSProfile(reliability=ReliabilityPolicy.BEST_EFFORT, history=HistoryPolicy.KEEP_LAST, depth=1)
@@ -47,6 +49,7 @@ class StateMachine(rclpy.node.Node):
         self.passed_subscription = self.create_subscription(Bool, '/obstacle/passed', self.obstacle_passed_callback, qos_reliable)
         self.traffic_light_subscription = self.create_subscription(Bool, 'traffic_light', self.traffic_light_callback, qos_reliable)
         self.keyboard_cmd_subscription = self.create_subscription(String, KEYBOARD_COMMAND_TOPIC, self.keyboard_command_callback, qos_reliable)
+        self.sign_subscription = self.create_subscription(String, 'sign', self.sign_detection_callback, qos_reliable)
 
         # Publishers
         self.state_publisher_ = self.create_publisher(String, 'robot/state', qos_reliable)
@@ -81,8 +84,8 @@ class StateMachine(rclpy.node.Node):
 
     def obstacle_detection_callback(self, msg: Bool):
         if self.manual_pause_active: return
-        new_blocking_state = msg.data
-        self.obstacle_is_blocking = new_blocking_state
+
+        self.obstacle_is_blocking = msg.data
         if self.obstacle_is_blocking and self.state == STATE_STOPPED_AT_OBSTACLE:
             self.change_state(STATE_PASSING_OBSTACLE)
 
@@ -110,6 +113,11 @@ class StateMachine(rclpy.node.Node):
              if not self.traffic_light_is_red:
                   self.traffic_light_is_red = True
 
+    def sign_detection_callback(self, msg: Bool):
+        if msg.data == "parking_sign":
+            self.change_state(STATE_STOPPED_AT_PARKING_SIGN)
+
+
     def control_loop_callback(self):
         if self.manual_pause_active:
              self.send_cmd_vel(0.0, 0.0)
@@ -124,6 +132,8 @@ class StateMachine(rclpy.node.Node):
              next_state = STATE_FOLLOW_LANE
              self.obstacle_just_passed = False
         elif current_state == STATE_STOPPED_AT_TRAFFIC_LIGHT and not self.initial_traffic_light_check_done and self.traffic_light_is_red:
+            pass
+        elif current_state == STATE_STOPPED_AT_PARKING_SIGN:
             pass
         elif not (current_state == STATE_STOPPED_AT_TRAFFIC_LIGHT and not self.initial_traffic_light_check_done and self.traffic_light_is_red):
             if self.obstacle_is_blocking:
@@ -159,7 +169,7 @@ class StateMachine(rclpy.node.Node):
             # print(f"DEBUG [SM]: State changed from {self.state} -> {new_state}", file=sys.stderr) # Debug Log
             self.state = new_state
             self.publish_current_state()
-            if self.state in [STATE_STOPPED_AT_OBSTACLE, STATE_STOPPED_AT_TRAFFIC_LIGHT]:
+            if self.state in [STATE_STOPPED_AT_OBSTACLE, STATE_STOPPED_AT_TRAFFIC_LIGHT, STATE_STOPPED_AT_PARKING_SIGN]:
                  self.send_cmd_vel(0.0, 0.0)
 
     def publish_current_state(self):

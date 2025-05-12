@@ -4,7 +4,8 @@ from sensor_msgs.msg import CompressedImage
 import cv2
 import numpy as np
 from cv_bridge import CvBridge
-from std_msgs.msg import String
+import os
+from std_msgs.msg import String  # Bool-Nachricht für das Veröffentlichen von True/False
 
 class SignDetectionNode(Node):
     def __init__(self):
@@ -18,15 +19,13 @@ class SignDetectionNode(Node):
             10
         )
 
-        # Dictionary von Templates und ihren Namen (Templates werden hier als binäre Bilder geladen)
-        self.templates = {
-            'park_sign': cv2.imread('/home/fabian/ros2_ws/src/waymo/waymo/traffic_signs/park_sign.png', cv2.IMREAD_COLOR),
-            'straight_sign': cv2.imread('/home/fabian/ros2_ws/src/waymo/waymo/traffic_signs/straight_sign.png', cv2.IMREAD_COLOR),
-            'left_sign': cv2.imread('/home/fabian/ros2_ws/src/waymo/waymo/traffic_signs/left_sign.png', cv2.IMREAD_COLOR),
-            'right_sign': cv2.imread('/home/fabian/ros2_ws/src/waymo/waymo/traffic_signs/right_sign.png', cv2.IMREAD_COLOR),        
-        }
+        # Publisher für das Parkplatzzeichen
+        self.parking_sign_publisher = self.create_publisher(String, '/sign', 10)
 
-        # Überprüfen, ob alle Templates erfolgreich geladen wurden
+        # Lade Templates aus dem Ordner /traffic_sign
+        self.templates = self.load_templates('/home/fabian/ros2_ws/src/waymo/waymo/traffic_signs')
+
+        # Überprüfen, ob Templates erfolgreich geladen wurden
         for name, template in self.templates.items():
             if template is None:
                 self.get_logger().error(f"Template '{name}' konnte nicht geladen werden! Überprüfe den Pfad.")
@@ -36,6 +35,26 @@ class SignDetectionNode(Node):
 
         # Initialisiere CvBridge
         self.bridge = CvBridge()
+
+    def load_templates(self, folder_path):
+        """
+        Lädt alle Bilddateien aus dem Ordner und gibt ein Dictionary mit
+        dem Dateinamen (ohne Erweiterung) und dem Bild zurück.
+        """
+        templates = {}
+        for filename in os.listdir(folder_path):
+            # Nur Bilddateien laden (PNG, JPG, etc.)
+            if filename.endswith('.png') or filename.endswith('.jpg'):
+                # Erstelle den vollen Pfad zum Template-Bild
+                image_path = os.path.join(folder_path, filename)
+                template = cv2.imread(image_path, cv2.IMREAD_COLOR)
+                if template is not None:
+                    # Verwende den Dateinamen ohne Erweiterung als Key
+                    template_name = os.path.splitext(filename)[0]
+                    templates[template_name] = template
+                else:
+                    self.get_logger().error(f"Fehler beim Laden von {filename}.")
+        return templates
 
     def convert_to_binary(self, image):
         """
@@ -64,10 +83,6 @@ class SignDetectionNode(Node):
         # Wende eine Schwellwertoperation an (Binärbild)
         _, image_bin = cv2.threshold(image_gray, 80, 255, cv2.THRESH_BINARY)
 
-        # Zeige das binäre Bild an
-        cv2.imshow('Binary Image', image_bin)  # Binärbild anzeigen
-        cv2.waitKey(1)
-
         # Durchlaufe alle Templates und führe das Template Matching durch
         for template_name, template_bin in self.templates_bin.items():
             # Hole die Dimensionen des Templates
@@ -80,7 +95,7 @@ class SignDetectionNode(Node):
             min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
 
             # Wenn das Template gut erkannt wurde, zeichne ein Rechteck und markiere es
-            if max_val > 0.6:  # Schwellenwert anpassen, je nach Anforderungen
+            if max_val > 0.65:  # Schwellenwert anpassen, je nach Anforderungen
                 top_left = max_loc
                 bottom_right = (top_left[0] + w, top_left[1] + h)
 
@@ -96,7 +111,14 @@ class SignDetectionNode(Node):
 
                 # Schreibe den Key des Dictionaries (Name des Templates) über das Rechteck
                 font = cv2.FONT_HERSHEY_SIMPLEX
-                cv2.putText(image, template_name + " " + str(max_val), (top_left[0], top_left[1] - 10), font, 0.7, color, 2, cv2.LINE_AA)
+                cv2.putText(image, template_name, (top_left[0], top_left[1] - 10), font, 0.7, color, 2, cv2.LINE_AA)
+
+                # Wenn das Parkzeichen erkannt wurde, sende eine Nachricht
+                if template_name == 'park_sign_0' or template_name == 'park_sign_1':
+                    # Veröffentliche 'True' auf dem Topic '/sign/parking_sign'
+                    parking_sign_msg = String()
+                    parking_sign_msg.data = "parking_sign"
+                    self.parking_sign_publisher.publish(parking_sign_msg)
 
         # Zeige das Ergebnis an
         cv2.imshow('Sign Detection', image)
