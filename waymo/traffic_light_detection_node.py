@@ -13,8 +13,7 @@ import time
 from cv_bridge import CvBridge, CvBridgeError # Hinzugefügt
 
 # --- Imports für Parameter ---
-from rcl_interfaces.msg import ParameterDescriptor, SetParametersResult, ParameterType, IntegerRange, FloatingPointRange
-from rclpy.parameter import Parameter
+from rcl_interfaces.msg import ParameterDescriptor, ParameterType, IntegerRange, FloatingPointRange
 
 class TrafficLightDetector(Node):
     def __init__(self):
@@ -26,11 +25,7 @@ class TrafficLightDetector(Node):
             reliability=ReliabilityPolicy.RELIABLE,
             history=HistoryPolicy.KEEP_LAST, depth=1
         )
-        qos_sensor = QoSProfile(
-            reliability=ReliabilityPolicy.BEST_EFFORT,
-            history=HistoryPolicy.KEEP_LAST, depth=1
-        )
-        qos_debug_images = QoSProfile(
+        qos_best_effort = QoSProfile(
             reliability=ReliabilityPolicy.BEST_EFFORT,
             history=HistoryPolicy.KEEP_LAST, depth=1
         )
@@ -70,7 +65,7 @@ class TrafficLightDetector(Node):
         self.declare_parameter('min_blob_area', 90, int_area_desc("Minimum Blob Area (pixels)")) # Angepasster Startwert
         self.declare_parameter('max_blob_area', 500, int_area_desc("Maximum Blob Area (pixels)"))# Deutlich erhöht
         # ROI
-        self.declare_parameter('roi_crop_factor_h', 0.6, ParameterDescriptor(type=ParameterType.PARAMETER_DOUBLE, description="ROI Crop Factor Height (0.1-1.0)", floating_point_range=[FloatingPointRange(from_value=0.1, to_value=1.0, step=0.05)]))
+        self.declare_parameter('roi_crop_factor_h', 0.6, float_desc("ROI Crop Factor Height (0.1-1.0)", min_val=0.1, max_val=1.0, step = 0.01))
 
         # Debug Publisher Flags
         self.declare_parameter('publish_mask', True, bool_desc("Publish filtered color mask image"))
@@ -81,13 +76,13 @@ class TrafficLightDetector(Node):
             CompressedImage,
             '/image_raw/compressed',
             self.image_callback,
-            qos_sensor)
+            qos_best_effort)
 
         self.publisher_ = self.create_publisher(Bool, 'traffic_light', qos_reliable)
 
         # --- Debug Publisher (unverändert) ---
-        self.pub_mask = self.create_publisher(CompressedImage, '/debug/cam/traffic_mask', qos_debug_images)
-        self.pub_overlay = self.create_publisher(CompressedImage, '/debug/cam/traffic_overlay', qos_debug_images)
+        self.pub_mask = self.create_publisher(CompressedImage, '/debug/cam/traffic_mask', qos_best_effort)
+        self.pub_overlay = self.create_publisher(CompressedImage, '/debug/cam/traffic_overlay', qos_best_effort)
 
 
     def _publish_image(self, publisher, image, timestamp):
