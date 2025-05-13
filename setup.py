@@ -12,7 +12,8 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
-        (os.path.join('share', package_name, 'launch'), glob(os.path.join('launch', '*launch.[pxy][yma]*')))
+        (os.path.join('share', package_name, 'launch'), glob(os.path.join('launch', '*launch.[pxy][yma]*'))),
+        (os.path.join('share', package_name, 'traffic_signs'), glob('waymo/traffic_signs/*.png')),
     ],
     # Entferne tf-transformations, füge scipy hinzu (wird oft als Teil von numpy installiert, aber sicher ist sicher)
     install_requires=['setuptools', 'numpy', 'scipy'],
@@ -31,6 +32,7 @@ setup(
             'passing_obstacle_node = waymo.passing_obstacle_node:main',
             'traffic_light_detection_node = waymo.traffic_light_detection_node:main',
             'keyboard_handler_node = waymo.keyboard_handler_node:main',
+            'sign_detection_node = waymo.sign_detection_node:main',
         ],
     },
 )

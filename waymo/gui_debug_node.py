@@ -20,6 +20,8 @@ class GuiDebugNode(Node):
     def __init__(self):
         super().__init__('gui_debug_node')
 
+        
+
         # --- Konfiguration ---
         self.state_topic = '/robot/state'
         self.keyboard_command_topic = '/keyboard_command'
@@ -30,14 +32,15 @@ class GuiDebugNode(Node):
             ('warped', '/debug/cam/warped'),
             ('filtered_warped', '/debug/cam/filtered_warped'),
             ('sliding_window', '/debug/cam/sliding_window'),
-            ('traffic_mask', '/debug/cam/traffic_mask'),
-            ('traffic_overlay', '/debug/cam/traffic_overlay'),
+            ('traffic_light_mask', '/debug/cam/traffic_mask'),
+            ('traffic_light_overlay', '/debug/cam/traffic_overlay'),
+            ('sign_detection_template_matching', '/debug/cam/template_matching'),
         ])
         self.image_msg_type = CompressedImage
         self.gui_window_name = 'Waymo Debug Canvas'
-        self.canvas_cols = 2
+        self.canvas_cols = 5
         self.placeholder_color = (40, 40, 40)
-        self.placeholder_text_color = (200, 200, 200)
+        self.placeholder_text_color = (9, 106, 206)
         # NEU: Feste Kachelgröße (basierend auf deiner Angabe 320x240)
         self.tile_width = 320
         self.tile_height = 240
@@ -45,10 +48,10 @@ class GuiDebugNode(Node):
         # NEU: Parameter für die Skalierung des gesamten Canvas
         scale_factor_descriptor = ParameterDescriptor(
             type=ParameterType.PARAMETER_DOUBLE,
-            description='Skalierungsfaktor für das gesamte Debug-Canvas (0.1 bis 1.0)',
-            floating_point_range=[FloatingPointRange(from_value=0.1, to_value=1.0, step=0.05)]
+            description='Skalierungsfaktor für das gesamte Debug-Canvas (0.1 bis 2.0)',
+            floating_point_range=[FloatingPointRange(from_value=0.0001, to_value=2.0, step=0.0001)]
         )
-        self.declare_parameter('canvas_scale_factor', 1.0, scale_factor_descriptor) # 1.0 = keine Skalierung
+        self.declare_parameter('canvas_scale_factor', 1.0, scale_factor_descriptor)
 
         # Initialisiere internen Status
         self.current_robot_state = "WAYMO_STARTED"

@@ -37,8 +37,9 @@ class LaneDetectionNode(Node):
         self.declare_parameter('c_value', 20, int_desc("Auto-S: c_value"))
         self.declare_parameter('center_factor', 0.03, float_desc("Center_Calc: factor")) # Schrittweite 0.001
         # Beachte: min/max thickness hatten step=0.001, daher keine Rundung nötig für Standardwerte 2.5 und 5.0
-        self.declare_parameter('min_thickness', 2.5, ParameterDescriptor(type=ParameterType.PARAMETER_DOUBLE, description="Minimum thickness ratio", floating_point_range=[FloatingPointRange(from_value=0.01, to_value=200.0, step=0.001)]))
-        self.declare_parameter('max_thickness', 5.0, ParameterDescriptor(type=ParameterType.PARAMETER_DOUBLE, description="Maximum thickness ratio", floating_point_range=[FloatingPointRange(from_value=0.01, to_value=200.0, step=0.001)]))
+        self.declare_parameter('min_thickness', 2.5, float_desc("Minimum thickness ratio", min_val=0.01, max_val=200.0, step=0.001))
+        self.declare_parameter('max_thickness', 5.0, float_desc("Maximum thickness ratio", min_val=0.01, max_val=200.0, step=0.001))
+        # ROI Parameter
         self.declare_parameter('roi_top_left_w', 0.1, float_desc("ROI TL Breite")) # Schrittweite 0.001
         self.declare_parameter('roi_top_left_h', 0.65, float_desc("ROI TL Höhe")) # Schrittweite 0.001
         self.declare_parameter('roi_top_right_w', 0.9, float_desc("ROI TR Breite")) # Schrittweite 0.001
