@@ -114,7 +114,7 @@ class StateMachine(rclpy.node.Node):
                   self.traffic_light_is_red = True
 
     def sign_detection_callback(self, msg: Bool):
-        if msg.data == "parking_sign":
+        if msg.data == "parking_sign_detected":
             self.change_state(STATE_STOPPED_AT_PARKING_SIGN)
 
 
