@@ -35,6 +35,7 @@ class GuiDebugNode(Node):
             ('traffic_light_mask', '/debug/cam/traffic_mask'),
             ('traffic_light_overlay', '/debug/cam/traffic_overlay'),
             ('sign_detection_template_matching', '/debug/cam/template_matching'),
+            ('sign_detection_binary', '/debug/cam/binary_sign'),
         ])
         self.image_msg_type = CompressedImage
         self.gui_window_name = 'Waymo Debug Canvas'
