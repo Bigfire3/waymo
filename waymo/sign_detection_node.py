@@ -19,6 +19,8 @@ class SignDetectionNode(Node):
 
         # Debug Publisher Flags
         self.declare_parameter('publish_template_matching', True, bool_desc("Publish template matching results as cv2 image"))
+        self.declare_parameter('publish_binary_sign', True, bool_desc("Publish binary frame results as cv2 image"))
+
 
         # --- QoS Profile ---
         qos_reliable = QoSProfile(
@@ -43,6 +45,7 @@ class SignDetectionNode(Node):
 
         # Publisher für Debug-Bilder
         self.pub_template_matching = self.create_publisher(CompressedImage, '/debug/cam/template_matching', qos_best_effort)
+        self.pub_binary_sign = self.create_publisher(CompressedImage, '/debug/cam/binary_sign', qos_best_effort)
 
         # --- ANPASSUNG FÜR TEMPLATE-PFAD ---
         # Ermittle den Pfad zum 'share'-Verzeichnis des eigenen Pakets ('waymo')
@@ -196,6 +199,8 @@ class SignDetectionNode(Node):
 
         if self.get_parameter('publish_template_matching').value:
                 self._publish_image(self.pub_template_matching, image, timestamp)
+        if self.get_parameter('publish_binary_sign').value:
+                self._publish_image(self.pub_binary_sign, image_bin, timestamp)
 
 def main(args=None):
     rclpy.init(args=args)
@@ -208,7 +213,7 @@ def main(args=None):
     finally:
         if SignDetectionNode and isinstance(SignDetectionNode, Node) and rclpy.ok(): SignDetectionNode.destroy_node()
         if rclpy.ok(): rclpy.shutdown()
-        try: cv2.destroyAllWindows()
+        try: pass#cv2.destroyAllWindows()
         except Exception: pass
 
 if __name__ == '__main__':
