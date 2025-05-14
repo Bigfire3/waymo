@@ -199,11 +199,8 @@ class SignDetectionNode(Node):
 
         if self.get_parameter('publish_template_matching').value:
                 self._publish_image(self.pub_template_matching, image, timestamp)
-
-        cv2.imshow("Binary", image_bin)
-        cv2.waitKey(0)
-        # if self.get_parameter('publish_binary_sign').value:
-        #         self._publish_image(self.pub_binary_sign, image_bin, timestamp)
+        if self.get_parameter('publish_binary_sign').value:
+                self._publish_image(self.pub_binary_sign, image_bin, timestamp)
 
 def main(args=None):
     rclpy.init(args=args)
