@@ -28,7 +28,7 @@ class StateMachine(rclpy.node.Node):
 
     def __init__(self):
         super().__init__('state_manager_node')
-        self.declare_parameter('drivingspeed', 0.15)
+        self.declare_parameter('drivingspeed', 0.1)
 
         # Interne Variablen
         self.center_offset = 0.0
@@ -220,12 +220,9 @@ class StateMachine(rclpy.node.Node):
         # --- Aktionen basierend auf dem aktuellen Zustand ---
         if self.state == STATE_FOLLOW_LANE:
             driving_speed = self.get_parameter('drivingspeed').get_parameter_value().double_value
-            # Winkelgeschwindigkeit basierend auf Offset (P-Regler)
-            # Der `center_offset` wird direkt als angular.z verwendet, aber geclippt
-            angular_z = self.center_offset 
-            max_angular_z_follow = 1.0 # Max Winkel beim normalen Folgen
-            angular_z_clipped = np.clip(angular_z, -max_angular_z_follow, max_angular_z_follow)
-            self.send_cmd_vel(driving_speed, angular_z_clipped)
+            angular_z = self.center_offset
+            angular_z = np.clip(angular_z, -1.0, 1.0)
+            self.send_cmd_vel(driving_speed, angular_z)
         elif self.state in [STATE_STOPPED_AT_OBSTACLE, STATE_STOPPED_AT_TRAFFIC_LIGHT]:
             self.send_cmd_vel(0.0, 0.0)
         elif self.state == STATE_PASSING_OBSTACLE:
