@@ -1,4 +1,4 @@
-# waymo/state_manager_node.py
+# state_manager_node.py
 
 import rclpy
 import rclpy.node
@@ -20,15 +20,14 @@ STATE_FOLLOW_LANE = 'FOLLOW_LANE'
 STATE_STOPPED_AT_OBSTACLE = 'STOPPED_AT_OBSTACLE'
 STATE_PASSING_OBSTACLE = 'PASSING_OBSTACLE'
 STATE_STOPPED_AT_TRAFFIC_LIGHT = 'STOPPED_AT_TRAFFIC_LIGHT'
-# STATE_STOPPED_AT_PARKING_SIGN = 'STOPPED_AT_PARKING_SIGN' # Wird durch STATE_PARKING ersetzt
-STATE_PARKING = 'PARKING' # NEUER ZUSTAND
+STATE_PARKING = 'PARKING'
 
 
 class StateMachine(rclpy.node.Node):
 
     def __init__(self):
         super().__init__('state_manager_node')
-        self.declare_parameter('drivingspeed', 0.1)
+        self.declare_parameter('drivingspeed', 0.15)
 
         # Interne Variablen
         self.center_offset = 0.0
@@ -40,20 +39,20 @@ class StateMachine(rclpy.node.Node):
         self.obstacle_just_passed = False
         self.initial_traffic_light_check_done = False
         self.parking_sign_visually_detected = False # Um zu wissen, dass das Schild mal gesehen wurde
+        self.parking_maneuver_finished = False # Flag, um den Abschluss des Parkens zu erkennen
 
         # QoS Profile
         qos_sensor = QoSProfile(reliability=ReliabilityPolicy.BEST_EFFORT, history=HistoryPolicy.KEEP_LAST, depth=1)
         qos_reliable = QoSProfile(reliability=ReliabilityPolicy.RELIABLE, history=HistoryPolicy.KEEP_LAST, depth=1)
 
         # Subscribers
-        self.obstacle_subscription = self.create_subscription(Bool, 'obstacle/blocked', self.obstacle_detection_callback, qos_sensor)
-        self.offset_subscription = self.create_subscription(Float64, 'lane/center_offset', self.lane_detection_callback, qos_sensor)
+        self.obstacle_subscription = self.create_subscription(Bool, '/obstacle/blocked', self.obstacle_detection_callback, qos_sensor)
+        self.offset_subscription = self.create_subscription(Float64, '/lane/center_offset', self.lane_detection_callback, qos_sensor)
         self.passed_subscription = self.create_subscription(Bool, '/obstacle/passed', self.obstacle_passed_callback, qos_reliable)
-        self.traffic_light_subscription = self.create_subscription(Bool, 'traffic_light', self.traffic_light_callback, qos_reliable)
+        self.traffic_light_subscription = self.create_subscription(Bool, '/traffic_light', self.traffic_light_callback, qos_reliable)
         self.keyboard_cmd_subscription = self.create_subscription(String, KEYBOARD_COMMAND_TOPIC, self.keyboard_command_callback, qos_reliable)
-        # Der sign_detection_node published "parking_sign_detected" auf /sign
-        self.sign_subscription = self.create_subscription(String, 'sign', self.sign_detection_callback, qos_reliable)
-
+        self.sign_subscription = self.create_subscription(String, '/sign', self.sign_detection_callback, qos_reliable)
+        self.parking_finished_subscription = self.create_subscription(Bool, '/parking/finished', self.parking_finished_callback, qos_reliable)
 
         # Publishers
         self.state_publisher_ = self.create_publisher(String, 'robot/state', qos_reliable)
@@ -139,6 +138,12 @@ class StateMachine(rclpy.node.Node):
             # um Prioritäten (z.B. nicht während PASSING_OBSTACLE) zu berücksichtigen.
         # Andere Schilder könnten hier behandelt werden, falls die msg.data erweitert wird.
 
+    def parking_finished_callback(self, msg: Bool):
+        if self.manual_pause_active: return
+
+        if msg.data:
+            self.parking_maneuver_finished = True
+
     def control_loop_callback(self):
         if self.manual_pause_active:
              # Im manuellen Pause-Zustand wird immer gestoppt und der Zustand MANUAL_PAUSE publiziert
@@ -177,39 +182,45 @@ class StateMachine(rclpy.node.Node):
             # c) Parkschild erkannt und bereit zum Parken?
             #    (Nicht während PASSING_OBSTACLE oder wenn an Ampel gestoppt)
             elif self.parking_sign_visually_detected and \
-                 current_internal_state not in [STATE_PASSING_OBSTACLE, STATE_PARKING]:
+                 current_internal_state not in [STATE_PASSING_OBSTACLE, STATE_PARKING, STATE_STOPPED_AT_TRAFFIC_LIGHT]:
                 # self.get_logger().info("Visuelles Parkschild wurde erkannt. Wechsel zu STATE_PARKING.")
                 next_state = STATE_PARKING
                 self.parking_sign_visually_detected = False # Reset Flag, da der Zustand erreicht wird
+                self.parking_maneuver_finished = False # Reset, da wir jetzt parken wollen
+            
+            # d) Im Zustand PARKING und Parkmanöver abgeschlossen:
+            elif current_internal_state == STATE_PARKING and self.parking_maneuver_finished:
+                next_state = STATE_FOLLOW_LANE
+                self.parking_sign_visually_detected = False # Reset des Schild-Flags
+                self.parking_maneuver_finished = False # Reset des Abschluss-Flags
 
-            # d) Im Zustand PARKING:
-            elif current_internal_state == STATE_PARKING:
+            # e) Im Zustand PARKING, aber noch nicht abgeschlossen:
+            elif current_internal_state == STATE_PARKING and not self.parking_maneuver_finished:
                 # Die parking_node steuert die Bewegung und das Anhalten.
-                # Der state_manager bleibt in diesem Zustand, bis eine externe Logik (später)
-                # einen Zustandswechsel auslöst (z.B. Parkmanöver beendet).
+                # Der state_manager bleibt in diesem Zustand, bis die parking_finished_callback aufgerufen wird.
                 pass
 
-            # e) Blockierendes Hindernis erkannt (und nicht schon in Umfahrung oder Parken)
+            # f) Blockierendes Hindernis erkannt (und nicht schon in Umfahrung oder Parken)
             elif self.obstacle_is_blocking and \
                  current_internal_state not in [STATE_PASSING_OBSTACLE, STATE_PARKING, STATE_STOPPED_AT_OBSTACLE]:
                 # self.get_logger().info("Hindernis blockiert den Weg. Wechsel zu STOPPED_AT_OBSTACLE.")
                 next_state = STATE_STOPPED_AT_OBSTACLE
             
-            # f) Von STOPPED_AT_OBSTACLE zu PASSING_OBSTACLE (wenn Hindernis immer noch da)
+            # g) Von STOPPED_AT_OBSTACLE zu PASSING_OBSTACLE (wenn Hindernis immer noch da)
             #    Diese Logik war in deinem obstacle_detection_callback, ist hier besser aufgehoben.
             elif current_internal_state == STATE_STOPPED_AT_OBSTACLE and self.obstacle_is_blocking:
                 #  self.get_logger().info("Hindernis immer noch da. Starte PASSING_OBSTACLE.")
                  next_state = STATE_PASSING_OBSTACLE
             
-            # g) Kein Hindernis und nicht in Spezialzustand -> FOLLOW_LANE
+            # h) Kein Hindernis und nicht in Spezialzustand -> FOLLOW_LANE
             #    (Auch wenn von STOPPED_AT_OBSTACLE kommend und Hindernis weg ist)
             elif not self.obstacle_is_blocking and \
                  current_internal_state not in [STATE_PASSING_OBSTACLE, STATE_PARKING, STATE_FOLLOW_LANE]:
                 # self.get_logger().info("Kein Hindernis (mehr) und nicht in Spezialzustand. Wechsel zu FOLLOW_LANE.")
                 next_state = STATE_FOLLOW_LANE
             
-            # h) Wenn bereits in FOLLOW_LANE und keine anderen Bedingungen zutreffen, bleibe dabei.
-            elif current_internal_state == STATE_FOLLOW_LANE and not self.obstacle_is_blocking and not self.parking_sign_visually_detected:
+            # i) Wenn bereits in FOLLOW_LANE und keine anderen Bedingungen zutreffen, bleibe dabei.
+            elif current_internal_state == STATE_FOLLOW_LANE and not self.obstacle_is_blocking and not self.parking_sign_visually_detected and not self.parking_maneuver_finished:
                 pass
 
 
