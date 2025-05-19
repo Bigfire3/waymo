@@ -6,62 +6,58 @@ from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 from geometry_msgs.msg import Twist
 from sensor_msgs.msg import LaserScan
-from nav_msgs.msg import Odometry # Odometry hinzugefügt
+from nav_msgs.msg import Odometry
 from std_msgs.msg import String, Float64
 import math
 import numpy as np
-import time
+import time # Beibehalten für phase_start_time
 from enum import Enum, auto
 
-# Für Quaternionen-Euler-Umwandlung (aus passing_obstacle_node)
+# Für Quaternionen-Euler-Umwandlung
 from scipy.spatial.transform import Rotation as R
 
 
 # --- Konstanten ---
 NODE_NAME = 'parking_node'
-STATE_PARKING = 'PARKING' # Zustand, in dem diese Node aktiv wird
+STATE_PARKING = 'PARKING' 
 CMD_VEL_TOPIC = '/cmd_vel'
 LASERSCAN_TOPIC = '/scan'
-ODOM_TOPIC = '/odom' # Hinzugefügt
+ODOM_TOPIC = '/odom'
 ROBOT_STATE_TOPIC = '/robot/state'
 LANE_OFFSET_TOPIC = '/lane/center_offset'
 
 # Fahrparameter
-PARKING_LINEAR_SPEED = 0.15 # Für Vorwärtsfahrt beim Suchen
-MANEUVER_LINEAR_SPEED_INTO_SPOT = 0.125 # Für die 25cm Fahrt in die Lücke
-MANEUVER_ANGULAR_SPEED_TURN = 1.0 # Für 90 Grad Drehungen
-MAX_ANGULAR_Z_LANE_FOLLOW = 0.3 # Maximale Winkelgeschwindigkeit beim Spurfolgen innerhalb des Parkens
+PARKING_LINEAR_SPEED = 0.1 # Einheitliche lineare Geschwindigkeit
+MANEUVER_ANGULAR_SPEED_TURN = 1.0
+MAX_ANGULAR_Z_LANE_FOLLOW = 0.3
 
-# Laserscan Parameter für initiale Schildererkennung (rechts)
+# Laserscan Parameter
 INITIAL_SCAN_ANGLE_MIN_DEG = 89.0
 INITIAL_SCAN_ANGLE_MAX_DEG = 91.0
 INITIAL_SCAN_ANGLE_MIN_RAD = math.radians(INITIAL_SCAN_ANGLE_MIN_DEG)
 INITIAL_SCAN_ANGLE_MAX_RAD = math.radians(INITIAL_SCAN_ANGLE_MAX_DEG)
-INITIAL_SPOT_DETECTION_DISTANCE = 0.25 # Distanzschwelle für das erste Schild
+INITIAL_SPOT_DETECTION_DISTANCE = 0.2
 
-# Laserscan Parameter für Parklückensuche (rechts)
 SPOT_SCAN_ANGLE_MIN_DEG = 75.0
 SPOT_SCAN_ANGLE_MAX_DEG = 105.0
 SPOT_SCAN_ANGLE_MIN_RAD = math.radians(SPOT_SCAN_ANGLE_MIN_DEG)
 SPOT_SCAN_ANGLE_MAX_RAD = math.radians(SPOT_SCAN_ANGLE_MAX_DEG)
-PARKING_SPOT_CLEAR_DISTANCE = 1.0 # Mindestabstand, damit Lücke als frei gilt
+PARKING_SPOT_CLEAR_DISTANCE = 1.0
 
-# Zeit- und Distanzparameter für Manöver
-INITIAL_STOP_DURATION = 1.0 # Sekunden
-DRIVE_TO_FIRST_SPOT_DURATION = 4.0 # Sekunden
-DRIVE_TO_NEXT_SPOT_DURATION = 2.0 # Sekunden
-STOP_BEFORE_SCAN_DURATION = 1.0 # NEU: 1 Sekunde Stopp vor dem Scannen
-MOVE_INTO_SPOT_DISTANCE = 0.2 # Meter
+# Zeit- und Distanzparameter
+INITIAL_STOP_DURATION = 1.0
+DRIVE_TO_FIRST_SPOT_DURATION = 5.8
+DRIVE_TO_NEXT_SPOT_DURATION = 3.1
+STOP_BEFORE_SCAN_DURATION = 1.0
+MOVE_INTO_SPOT_DISTANCE = 0.3
 TURN_ANGLE_90_DEG = math.pi / 2
-GOAL_TOLERANCE_ANGLE_RAD = math.radians(2.5) # 2.5 Grad Toleranz für Drehungen
+GOAL_TOLERANCE_ANGLE_RAD = math.radians(2.5)
 
 MAX_PARKING_ATTEMPTS = 3
 
 
-# Interne Zustände für die Parksequenz
 class ParkingPhase(Enum):
     IDLE = auto()
-    # NEU: Explizite Phase für das initiale Hinfahren/Suchen des Laserschilds
     DRIVING_FOR_INITIAL_LASER_SCAN = auto()
     INITIAL_SIGN_STOPPING = auto()
     INITIAL_SIGN_WAITING = auto()
@@ -102,7 +98,7 @@ class ParkingNode(Node):
 
         self.cmd_vel_publisher = self.create_publisher(Twist, CMD_VEL_TOPIC, qos_reliable)
 
-        self.control_timer_period = 0.05 
+        self.control_timer_period = 0.005
         self.control_timer = self.create_timer(self.control_timer_period, self.parking_sequence_controller)
 
     def robot_state_manager_callback(self, msg: String):
@@ -111,10 +107,9 @@ class ParkingNode(Node):
             self.current_robot_state_from_manager = new_state_from_manager
 
             if self.current_robot_state_from_manager == STATE_PARKING and \
-               (self.parking_phase == ParkingPhase.IDLE or self.parking_phase == ParkingPhase.MANEUVER_COMPLETE): # Auch nach Abschluss wieder starten
+               (self.parking_phase == ParkingPhase.IDLE or self.parking_phase == ParkingPhase.MANEUVER_COMPLETE):
                 self.initial_sign_laser_detected = False 
                 self.parking_attempts_count = 0
-                # Explizit in die Phase wechseln, in der er fährt, um das Schild per Laser zu finden
                 self.change_parking_phase(ParkingPhase.DRIVING_FOR_INITIAL_LASER_SCAN)
             elif self.current_robot_state_from_manager != STATE_PARKING and self.parking_phase != ParkingPhase.IDLE:
                 self.reset_parking_sequence()
@@ -135,21 +130,20 @@ class ParkingNode(Node):
             r = R.from_quat(orientation_list)
             euler = r.as_euler('xyz', degrees=False)
             self.current_yaw = euler[2] 
-        except Exception:
+        except Exception as e:
+            self.get_logger().warn(f"Error in odom_callback quaternion conversion: {e}", throttle_duration_sec=5)
             pass
 
     def scan_callback(self, msg: LaserScan):
         if self.current_robot_state_from_manager != STATE_PARKING:
             return
 
-        # Initiale Erkennung nur, wenn wir in der entsprechenden Phase sind
         if self.parking_phase == ParkingPhase.DRIVING_FOR_INITIAL_LASER_SCAN and not self.initial_sign_laser_detected:
             obstacle_detected_at_initial_spot = self.check_laser_zone(
                 msg, INITIAL_SCAN_ANGLE_MIN_RAD, INITIAL_SCAN_ANGLE_MAX_RAD, INITIAL_SPOT_DETECTION_DISTANCE
             )
             if obstacle_detected_at_initial_spot:
                 self.initial_sign_laser_detected = True
-                # Der Controller wird stoppen und die nächste Phase einleiten
                 self.change_parking_phase(ParkingPhase.INITIAL_SIGN_STOPPING)
 
         elif self.parking_phase == ParkingPhase.SCANNING_FOR_SPOT:
@@ -167,16 +161,22 @@ class ParkingNode(Node):
 
     def check_laser_zone(self, scan_msg: LaserScan, angle_min_rad_target: float, angle_max_rad_target: float, detection_distance: float) -> bool:
         if scan_msg.angle_increment <= 0.0:
+            self.get_logger().warn("Invalid angle_increment in laser scan.", throttle_duration_sec=10)
             return False
+        
         actual_scan_angle_max_rad = scan_msg.angle_min + (len(scan_msg.ranges) - 1) * scan_msg.angle_increment
         adj_target_min = max(angle_min_rad_target, scan_msg.angle_min)
         adj_target_max = min(angle_max_rad_target, actual_scan_angle_max_rad)
-        if adj_target_min > adj_target_max:
+
+        if adj_target_min >= adj_target_max:
             return False
+
         start_index = max(0, int((adj_target_min - scan_msg.angle_min) / scan_msg.angle_increment))
         end_index = min(len(scan_msg.ranges) - 1, int((adj_target_max - scan_msg.angle_min) / scan_msg.angle_increment))
+
         if start_index > end_index:
             return False
+
         for i in range(start_index, end_index + 1):
             dist = scan_msg.ranges[i]
             if not math.isinf(dist) and not math.isnan(dist) and \
@@ -198,12 +198,24 @@ class ParkingNode(Node):
                     angle_to_turn = TURN_ANGLE_90_DEG  
                 self.target_yaw_for_turn = self.normalize_angle(self.start_yaw_for_turn + angle_to_turn)
             elif new_phase == ParkingPhase.MOVING_INTO_SPOT:
-                self.maneuver_drive_duration = MOVE_INTO_SPOT_DISTANCE / MANEUVER_LINEAR_SPEED_INTO_SPOT
+                if PARKING_LINEAR_SPEED > 0:
+                    self.maneuver_drive_duration = MOVE_INTO_SPOT_DISTANCE / PARKING_LINEAR_SPEED
+                else:
+                    self.maneuver_drive_duration = float('inf') 
+                    self.get_logger().error("PARKING_LINEAR_SPEED is 0, cannot calculate maneuver_drive_duration for MOVING_INTO_SPOT.")
             elif new_phase == ParkingPhase.DRIVING_TO_SCAN_POINT:
                 if self.parking_attempts_count == 0: 
                      self.maneuver_drive_duration = DRIVE_TO_FIRST_SPOT_DURATION
                 else: 
                      self.maneuver_drive_duration = DRIVE_TO_NEXT_SPOT_DURATION
+            
+            if new_phase in [ParkingPhase.INITIAL_SIGN_STOPPING,
+                               ParkingPhase.INITIAL_SIGN_WAITING,
+                               ParkingPhase.STOPPING_BEFORE_SCAN,
+                               ParkingPhase.SCANNING_FOR_SPOT,
+                               ParkingPhase.MANEUVER_COMPLETE,
+                               ParkingPhase.IDLE]:
+                self.stop_robot()
 
     def parking_sequence_controller(self):
         if self.current_robot_state_from_manager != STATE_PARKING:
@@ -219,23 +231,18 @@ class ParkingNode(Node):
         elapsed_phase_time = current_time - self.phase_start_time
         
         if self.parking_phase == ParkingPhase.IDLE:
-            # Sollte nur eintreten, wenn STATE_PARKING noch nicht aktiv oder Sequenz resettet wurde.
-            # Wenn STATE_PARKING aktiv wird, wechselt robot_state_manager_callback zu DRIVING_FOR_INITIAL_LASER_SCAN
             self.stop_robot()
             return
 
         if self.parking_phase == ParkingPhase.DRIVING_FOR_INITIAL_LASER_SCAN:
-            # Fahren, bis scan_callback initial_sign_laser_detected setzt und Phase ändert
             if not self.initial_sign_laser_detected:
                 self.follow_lane_slowly()
             else:
-                # Sollte durch scan_callback schon in INITIAL_SIGN_STOPPING sein.
-                # Falls nicht, hier als Fallback stoppen.
                 self.stop_robot()
-            return # Warten auf Phasenwechsel durch scan_callback
+            return 
 
         if self.parking_phase == ParkingPhase.INITIAL_SIGN_STOPPING:
-            self.stop_robot()
+            self.stop_robot() 
             self.change_parking_phase(ParkingPhase.INITIAL_SIGN_WAITING)
 
         elif self.parking_phase == ParkingPhase.INITIAL_SIGN_WAITING:
@@ -248,7 +255,7 @@ class ParkingNode(Node):
             if elapsed_phase_time < self.maneuver_drive_duration:
                 self.follow_lane_slowly()
             else:
-                self.stop_robot()
+                self.stop_robot() 
                 self.change_parking_phase(ParkingPhase.STOPPING_BEFORE_SCAN)
         
         elif self.parking_phase == ParkingPhase.STOPPING_BEFORE_SCAN: 
@@ -262,21 +269,21 @@ class ParkingNode(Node):
 
         elif self.parking_phase == ParkingPhase.TURNING_RIGHT_FOR_PARKING:
             if self.turn_to_target(self.target_yaw_for_turn, MANEUVER_ANGULAR_SPEED_TURN):
-                self.stop_robot()
+                self.stop_robot() 
                 self.change_parking_phase(ParkingPhase.MOVING_INTO_SPOT)
         
         elif self.parking_phase == ParkingPhase.MOVING_INTO_SPOT:
             if elapsed_phase_time < self.maneuver_drive_duration:
-                self.move_straight(MANEUVER_LINEAR_SPEED_INTO_SPOT)
+                self.move_straight(PARKING_LINEAR_SPEED) 
             else:
-                self.stop_robot()
+                self.stop_robot() 
                 self.change_parking_phase(ParkingPhase.TURNING_LEFT_IN_SPOT)
 
         elif self.parking_phase == ParkingPhase.TURNING_LEFT_IN_SPOT:
             if self.turn_to_target(self.target_yaw_for_turn, MANEUVER_ANGULAR_SPEED_TURN):
                 self.stop_robot()
                 self.change_parking_phase(ParkingPhase.MANEUVER_COMPLETE)
-
+        
     def follow_lane_slowly(self):
         twist_msg = Twist()
         twist_msg.linear.x = PARKING_LINEAR_SPEED
@@ -316,13 +323,16 @@ class ParkingNode(Node):
             self.stop_robot() 
             return True
         else:
-            if angle_diff > GOAL_TOLERANCE_ANGLE_RAD: 
-                self.turn_robot(angular_speed_abs)
-            elif angle_diff < -GOAL_TOLERANCE_ANGLE_RAD: 
-                self.turn_robot(-angular_speed_abs)
+            turn_speed_actual = angular_speed_abs
+            if angular_speed_abs == 0:
+                 # self.get_logger().warn("turn_to_target called with angular_speed_abs = 0. Cannot turn.") # Wie gewünscht auskommentiert
+                 self.stop_robot()
+                 return False 
+
+            if angle_diff > 0: 
+                self.turn_robot(turn_speed_actual)
             else: 
-                 self.stop_robot() 
-                 return True 
+                self.turn_robot(-turn_speed_actual)
             return False
 
     def destroy_node(self):
@@ -337,7 +347,10 @@ def main(args=None):
     except KeyboardInterrupt:
         pass 
     except Exception as e:
-        print(f"FATAL ERROR in {NODE_NAME}: {e}\n{traceback.format_exc()}", file=sys.stderr)
+        if parking_node: 
+            parking_node.get_logger().error(f"FATAL ERROR in {NODE_NAME}: {e}\n{traceback.format_exc()}")
+        else: 
+            print(f"FATAL ERROR in {NODE_NAME} (pre-init or during init): {e}\n{traceback.format_exc()}", file=sys.stderr)
     finally:
         if parking_node:
             parking_node.destroy_node()
