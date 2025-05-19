@@ -1,3 +1,4 @@
+# parking_node.py
 #!/usr/bin/env python3
 import sys
 import traceback
@@ -7,7 +8,7 @@ from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 from geometry_msgs.msg import Twist
 from sensor_msgs.msg import LaserScan
 from nav_msgs.msg import Odometry
-from std_msgs.msg import String, Float64
+from std_msgs.msg import String, Float64, Bool
 import math
 import numpy as np
 import time # Beibehalten für phase_start_time
@@ -25,32 +26,34 @@ LASERSCAN_TOPIC = '/scan'
 ODOM_TOPIC = '/odom'
 ROBOT_STATE_TOPIC = '/robot/state'
 LANE_OFFSET_TOPIC = '/lane/center_offset'
+PARKING_FINISHED_TOPIC = '/parking/finished'
 
 # Fahrparameter
 PARKING_LINEAR_SPEED = 0.1 # Einheitliche lineare Geschwindigkeit
-MANEUVER_ANGULAR_SPEED_TURN = 1.0
-MAX_ANGULAR_Z_LANE_FOLLOW = 0.3
+MANEUVER_ANGULAR_SPEED_TURN = 0.8
+MAX_ANGULAR_Z_LANE_FOLLOW = 0.35
 
 # Laserscan Parameter
-INITIAL_SCAN_ANGLE_MIN_DEG = 89.0
-INITIAL_SCAN_ANGLE_MAX_DEG = 91.0
+INITIAL_SCAN_ANGLE_MIN_DEG = 88.0
+INITIAL_SCAN_ANGLE_MAX_DEG = 92.0
 INITIAL_SCAN_ANGLE_MIN_RAD = math.radians(INITIAL_SCAN_ANGLE_MIN_DEG)
 INITIAL_SCAN_ANGLE_MAX_RAD = math.radians(INITIAL_SCAN_ANGLE_MAX_DEG)
-INITIAL_SPOT_DETECTION_DISTANCE = 0.2
+INITIAL_SPOT_DETECTION_DISTANCE = 0.25
 
 SPOT_SCAN_ANGLE_MIN_DEG = 75.0
 SPOT_SCAN_ANGLE_MAX_DEG = 105.0
 SPOT_SCAN_ANGLE_MIN_RAD = math.radians(SPOT_SCAN_ANGLE_MIN_DEG)
 SPOT_SCAN_ANGLE_MAX_RAD = math.radians(SPOT_SCAN_ANGLE_MAX_DEG)
-PARKING_SPOT_CLEAR_DISTANCE = 1.0
+PARKING_SPOT_CLEAR_DISTANCE = 0.4
 
 # Zeit- und Distanzparameter
 INITIAL_STOP_DURATION = 1.0
-DRIVE_TO_FIRST_SPOT_DURATION = 5.8
-DRIVE_TO_NEXT_SPOT_DURATION = 3.1
+DRIVE_TO_FIRST_SPOT_DURATION = 5.2
+DRIVE_TO_NEXT_SPOT_DURATION = 3.35
 STOP_BEFORE_SCAN_DURATION = 1.0
-MOVE_INTO_SPOT_DISTANCE = 0.3
-TURN_ANGLE_90_DEG = math.pi / 2
+PARKING_DURATION = 3.0
+MOVE_SPOT_DISTANCE = 0.3
+TURN_ANGLE_90_DEG = math.radians(90.0 - 2.0)
 GOAL_TOLERANCE_ANGLE_RAD = math.radians(2.5)
 
 MAX_PARKING_ATTEMPTS = 3
@@ -66,7 +69,11 @@ class ParkingPhase(Enum):
     SCANNING_FOR_SPOT = auto()
     TURNING_RIGHT_FOR_PARKING = auto()
     MOVING_INTO_SPOT = auto()
-    TURNING_LEFT_IN_SPOT = auto()
+    TURNING_LEFT_IN_SPOT_TO_PARK = auto()
+    WAITING_IN_SPOT = auto()
+    TURNING_LEFT_IN_SPOT_TO_GET_OUT = auto()
+    MOVING_OUT_OF_SPOT = auto()
+    TURNING_RIGHT_FOR_LANE_FOLLOWING = auto()
     MANEUVER_COMPLETE = auto()
 
 
@@ -97,6 +104,7 @@ class ParkingNode(Node):
         self.odom_subscriber = self.create_subscription(Odometry, ODOM_TOPIC, self.odom_callback, qos_best_effort)
 
         self.cmd_vel_publisher = self.create_publisher(Twist, CMD_VEL_TOPIC, qos_reliable)
+        self.parking_finished_publisher = self.create_publisher(Bool, PARKING_FINISHED_TOPIC, qos_reliable)
 
         self.control_timer_period = 0.005
         self.control_timer = self.create_timer(self.control_timer_period, self.parking_sequence_controller)
@@ -190,16 +198,20 @@ class ParkingNode(Node):
             self.parking_phase = new_phase
             self.phase_start_time = self.get_clock().now().nanoseconds / 1e9
 
-            if new_phase == ParkingPhase.TURNING_RIGHT_FOR_PARKING or new_phase == ParkingPhase.TURNING_LEFT_IN_SPOT:
+            if \
+            new_phase == ParkingPhase.TURNING_RIGHT_FOR_PARKING or \
+            new_phase == ParkingPhase.TURNING_LEFT_IN_SPOT_TO_PARK or \
+            new_phase == ParkingPhase.TURNING_LEFT_IN_SPOT_TO_GET_OUT or \
+            new_phase == ParkingPhase.TURNING_RIGHT_FOR_LANE_FOLLOWING:
                 self.start_yaw_for_turn = self.current_yaw
-                if new_phase == ParkingPhase.TURNING_RIGHT_FOR_PARKING:
+                if new_phase == ParkingPhase.TURNING_RIGHT_FOR_PARKING or new_phase == ParkingPhase.TURNING_RIGHT_FOR_LANE_FOLLOWING:
                     angle_to_turn = -TURN_ANGLE_90_DEG 
                 else: 
                     angle_to_turn = TURN_ANGLE_90_DEG  
                 self.target_yaw_for_turn = self.normalize_angle(self.start_yaw_for_turn + angle_to_turn)
-            elif new_phase == ParkingPhase.MOVING_INTO_SPOT:
+            elif new_phase == ParkingPhase.MOVING_INTO_SPOT or new_phase == ParkingPhase.MOVING_OUT_OF_SPOT:
                 if PARKING_LINEAR_SPEED > 0:
-                    self.maneuver_drive_duration = MOVE_INTO_SPOT_DISTANCE / PARKING_LINEAR_SPEED
+                    self.maneuver_drive_duration = MOVE_SPOT_DISTANCE / PARKING_LINEAR_SPEED
                 else:
                     self.maneuver_drive_duration = float('inf') 
                     self.get_logger().error("PARKING_LINEAR_SPEED is 0, cannot calculate maneuver_drive_duration for MOVING_INTO_SPOT.")
@@ -208,6 +220,8 @@ class ParkingNode(Node):
                      self.maneuver_drive_duration = DRIVE_TO_FIRST_SPOT_DURATION
                 else: 
                      self.maneuver_drive_duration = DRIVE_TO_NEXT_SPOT_DURATION
+            elif new_phase == ParkingPhase.WAITING_IN_SPOT:
+                self.maneuver_drive_duration = PARKING_DURATION
             
             if new_phase in [ParkingPhase.INITIAL_SIGN_STOPPING,
                                ParkingPhase.INITIAL_SIGN_WAITING,
@@ -225,6 +239,7 @@ class ParkingNode(Node):
 
         if self.parking_phase == ParkingPhase.MANEUVER_COMPLETE:
             self.stop_robot()
+            self.parking_finished_publisher.publish(Bool(data=True)) # Signalisiere Abschluss
             return
         
         current_time = self.get_clock().now().nanoseconds / 1e9
@@ -277,12 +292,35 @@ class ParkingNode(Node):
                 self.move_straight(PARKING_LINEAR_SPEED) 
             else:
                 self.stop_robot() 
-                self.change_parking_phase(ParkingPhase.TURNING_LEFT_IN_SPOT)
+                self.change_parking_phase(ParkingPhase.TURNING_LEFT_IN_SPOT_TO_PARK)
 
-        elif self.parking_phase == ParkingPhase.TURNING_LEFT_IN_SPOT:
+        elif self.parking_phase == ParkingPhase.TURNING_LEFT_IN_SPOT_TO_PARK:
             if self.turn_to_target(self.target_yaw_for_turn, MANEUVER_ANGULAR_SPEED_TURN):
                 self.stop_robot()
-                self.change_parking_phase(ParkingPhase.MANEUVER_COMPLETE)
+                self.change_parking_phase(ParkingPhase.WAITING_IN_SPOT)
+
+        elif self.parking_phase == ParkingPhase.WAITING_IN_SPOT:
+            self.stop_robot()
+            if elapsed_phase_time >= self.maneuver_drive_duration:
+                self.change_parking_phase(ParkingPhase.TURNING_LEFT_IN_SPOT_TO_GET_OUT)
+
+        elif self.parking_phase == ParkingPhase.TURNING_LEFT_IN_SPOT_TO_GET_OUT:
+            if self.turn_to_target(self.target_yaw_for_turn, MANEUVER_ANGULAR_SPEED_TURN):
+                self.stop_robot()
+                self.change_parking_phase(ParkingPhase.MOVING_OUT_OF_SPOT)
+        
+        elif self.parking_phase == ParkingPhase.MOVING_OUT_OF_SPOT:
+            if elapsed_phase_time < self.maneuver_drive_duration:
+                self.move_straight(PARKING_LINEAR_SPEED)
+            else:
+                self.stop_robot()
+                self.change_parking_phase(ParkingPhase.TURNING_RIGHT_FOR_LANE_FOLLOWING)
+        
+        elif self.parking_phase == ParkingPhase.TURNING_RIGHT_FOR_LANE_FOLLOWING:
+            if self.turn_to_target(self.target_yaw_for_turn, MANEUVER_ANGULAR_SPEED_TURN):
+                self.stop_robot()
+                if elapsed_phase_time >= self.maneuver_drive_duration:
+                    self.change_parking_phase(ParkingPhase.MANEUVER_COMPLETE)
         
     def follow_lane_slowly(self):
         twist_msg = Twist()
