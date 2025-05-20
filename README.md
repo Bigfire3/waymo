@@ -261,6 +261,7 @@ Nodes can be configured via ROS2 parameters or internal constants:
     * Alternatively, use pip within your environment (e.g., Conda): `pip install numpy scipy opencv-python` (cv_bridge usually comes with ROS).
 
 ---
+
 ### Workspace Setup
 
 1. Create a ROS2 workspace (if not already done):
