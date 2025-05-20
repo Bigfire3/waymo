@@ -107,18 +107,18 @@ This package consists of several ROS2 nodes that work together:
     * `/odom` (`nav_msgs/Odometry`): To get the current orientation (yaw) for precise turns.
     * `/lane/center_offset` (`std_msgs/Float64`): Used for lane following when driving to potential parking spots.
     * Executes a multi-phase parking sequence:
-      1. `DRIVING_FOR_INITIAL_LASER_SCAN`: Drives forward slowly, following the lane, until an initial laser scan indicates a potential area (e.g., passed the visual sign).
-      2. `INITIAL_SIGN_STOPPING` & `INITIAL_SIGN_WAITING`: Stops briefly after the initial laser detection.
-      3. `DRIVING_TO_SCAN_POINT`: Drives a predefined distance to the first (or next) potential parking spot, following the lane.
-      4. `STOPPING_BEFORE_SCAN` & `SCANNING_FOR_SPOT`: Stops and uses laser scans to check if the adjacent parking spot is clear. If not clear, and `MAX_PARKING_ATTEMPTS` not reached, it moves to the next potential spot.
-      5. `TURNING_RIGHT_FOR_PARKING`: Executes a 90° right turn towards the spot.
-      6. `MOVING_INTO_SPOT`: Drives a short distance forward into the parking spot.
-      7. `TURNING_LEFT_IN_SPOT_TO_PARK`: Executes a 90° left turn to align parallel in the spot.
-      8. `WAITING_IN_SPOT`: Pauses for a defined duration in the parked position.
-      9. `TURNING_LEFT_IN_SPOT_TO_GET_OUT`: Executes a 90° left turn to prepare for exiting.
-      10. `MOVING_OUT_OF_SPOT`: Drives a short distance forward to leave the spot.
-      11. `TURNING_RIGHT_FOR_LANE_FOLLOWING`: Executes a 90° right turn to align with the lane again.
-      12. `MANEUVER_COMPLETE`: Signals completion.
+      * `DRIVING_FOR_INITIAL_LASER_SCAN`: Drives forward slowly, following the lane, until an initial laser scan indicates a potential area (e.g., passed the visual sign).
+      * `INITIAL_SIGN_STOPPING` & `INITIAL_SIGN_WAITING`: Stops briefly after the initial laser detection.
+      * `DRIVING_TO_SCAN_POINT`: Drives a predefined distance to the first (or next) potential parking spot, following the lane.
+      * `STOPPING_BEFORE_SCAN` & `SCANNING_FOR_SPOT`: Stops and uses laser scans to check if the adjacent parking spot is clear. If not clear, and `MAX_PARKING_ATTEMPTS` not reached, it moves to the next potential spot.
+      * `TURNING_RIGHT_FOR_PARKING`: Executes a 90° right turn towards the spot.
+      * `MOVING_INTO_SPOT`: Drives a short distance forward into the parking spot.
+      * `TURNING_LEFT_IN_SPOT_TO_PARK`: Executes a 90° left turn to align parallel in the spot.
+      * `WAITING_IN_SPOT`: Pauses for a defined duration in the parked position.
+      * `TURNING_LEFT_IN_SPOT_TO_GET_OUT`: Executes a 90° left turn to prepare for exiting.
+      * `MOVING_OUT_OF_SPOT`: Drives a short distance forward to leave the spot.
+      * `TURNING_RIGHT_FOR_LANE_FOLLOWING`: Executes a 90° right turn to align with the lane again.
+      * `MANEUVER_COMPLETE`: Signals completion.
   * Publishes a `std_msgs/Bool` message on `/parking/finished` topic (True when the full maneuver is completed or aborted after max attempts).
   * **Dependencies:** NumPy, SciPy (for quaternion to Euler conversion).
 
