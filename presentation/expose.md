@@ -3,7 +3,7 @@
 # Exposé-Vortrag: ROS 2 Projekt "waymo"
 
 <!-- data-type="none" -->
-| Parameter            |Kursinformationen                                                             |
+| Parameter            | Kursinformationen                                                            |
 | -------------------- | -----------------------------------------------------------------------------|
 | **Veranstaltung:**   | `Robotik Projekt`                                                            |
 | **Semester**         | `Sommersemester 2025`                                                        |
@@ -39,10 +39,10 @@ Roboter fährt voll automatisiert auf einer vorher nicht bekannten Fahrbahn, led
 
 + Nodes:
   
-   - `gui_debug_node.py`
-   - `state_manager_node.py`
-   - `lane_detection_node.py`
-   - `obstacle_detection_node.py`
+  + `gui_debug_node.py`
+  + `state_manager_node.py`
+  + `lane_detection_node.py`
+  + `obstacle_detection_node.py`
 
 + Visualisierung der Node-Interaktionen (Nodes und Topics):
 
@@ -50,9 +50,9 @@ Roboter fährt voll automatisiert auf einer vorher nicht bekannten Fahrbahn, led
 
 + Wichtige externe Bibliotheken:
 
-   - OpenCV (für Auswertung und Debugging mit Kamerabildern)
-   - NumPy
-   - Matplotlib
+  + OpenCV (für Auswertung und Debugging mit Kamerabildern)
+  + NumPy
+  + Matplotlib
 
 ---
 
@@ -60,18 +60,18 @@ Roboter fährt voll automatisiert auf einer vorher nicht bekannten Fahrbahn, led
 
 + **Fahrbahnerkennung:**
 
-   - Nutzung von [Dokumentation und Guide zur Real-Time Lane Detection](https://automaticaddison.com/the-ultimate-guide-to-real-time-lane-detection-using-opencv/) von Addison Sears-Collins
-   - Anpassung der Parameter und Ergänzung von Filtern für unser Szenario
-   - Herausforderungen: Reflexion von indirekten Lichtquellen
+  + Nutzung von [Dokumentation und Guide zur Real-Time Lane Detection](https://automaticaddison.com/the-ultimate-guide-to-real-time-lane-detection-using-opencv/) von Addison Sears-Collins
+  + Anpassung der Parameter und Ergänzung von Filtern für unser Szenario
+  + Herausforderungen: Reflexion von indirekten Lichtquellen
 
 + **Hinderniserkennung:**
 
-   - Nutzung der bereits implementierten Hinderniserkennung aus dem Wintersemester 2024/25
-   - Nutzung von Topic `/obstacle/blocked`, um Info zu haben, ob Fahrbahn frei ist oder Hindernis im Weg steht
+  + Nutzung der bereits implementierten Hinderniserkennung aus dem Wintersemester 2024/25
+  + Nutzung von Topic `/obstacle/blocked`, um Info zu haben, ob Fahrbahn frei ist oder Hindernis im Weg steht
 
 + **State Manager:**
 
-   - zentrale Verarbeitung der Topics, um die richtigen Fahrbefehle an den Roboter zu senden
+  + zentrale Verarbeitung der Topics, um die richtigen Fahrbefehle an den Roboter zu senden
 
 ---
 
