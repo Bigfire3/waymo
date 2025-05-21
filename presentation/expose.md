@@ -1,9 +1,9 @@
-[![LiaScript](https://raw.githubusercontent.com/LiaScript/LiaScript/master/badges/course.svg)](https://liascript.github.io/course/?https://github.com/Bigfire3/waymo/blob/documentation-simon/presentation/expose.md)
+[![LiaScript](https://raw.githubusercontent.com/LiaScript/LiaScript/master/badges/course.svg)](https://liascript.github.io/course/?https://github.com/Bigfire3/waymo/blob/documentation/presentation/expose.md)
 
 # Exposé-Vortrag: ROS 2 Projekt "waymo"
 
 <!-- data-type="none" -->
-| Parameter            |Kursinformationen                                                             |
+| Parameter            | Kursinformationen                                                            |
 | -------------------- | -----------------------------------------------------------------------------|
 | **Veranstaltung:**   | `Robotik Projekt`                                                            |
 | **Semester**         | `Sommersemester 2025`                                                        |
