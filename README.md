@@ -11,7 +11,7 @@ You can start the package and the keyboard handler with the following steps:
 
    ```bash
    cd ~/ros2_ws/src/waymo
-   soure ~/ros2_ws/install/setup.bash
+   source ~/ros2_ws/install/setup.bash
    ./run_keyboard_handler_node.bash
    ```
    
