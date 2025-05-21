@@ -33,10 +33,6 @@ class Lane:
         self.previous_left_fit = None
         self.previous_right_fit = None
 
-        # Umrechnungsfaktoren von Pixel in Meter (Standardwerte, können durch Params überschrieben werden)
-        self.YM_PER_PIX = 30.0 / 720 # Default Meters per pixel in y dimension
-        self.XM_PER_PIX = 3.7 / 700  # Default Meters per pixel in x dimension
-
         # Krümmungsradien und Offset (später berechnet)
         self.left_curvem = None
         self.right_curvem = None
@@ -66,6 +62,8 @@ class Lane:
         height = self.orig_image_size[1]
         self.width = width
         self.height = height
+
+        self.prev_center_offset = None
 
         # Vier Ecken des trapezförmigen ROI (Region of Interest)
         h, w = self.orig_frame.shape[:2]
@@ -99,7 +97,7 @@ class Lane:
         self.sliding_window_debug_img = None
         # --- Ende NEU ---
 
-    def calculate_car_position(self, print_to_terminal=False, **params):
+    def calculate_car_position(self, **params):
         """
         Berechnet den Offset zwischen dem Fahrzeug (angenommen, Kamera ist im Bildzentrum)
         und der Fahrspurmitte.
@@ -109,19 +107,23 @@ class Lane:
             return None
 
         # Y-Koordinate am unteren Rand für die Berechnung (etwas über dem absoluten Rand)
-        self.y_bottom = self.orig_frame.shape[0] - 1 # Oder ein anderer Wert wie self.height -1
+        self.y_bottom = self.orig_frame.shape[0] - 60
 
         # Berechne die X-Koordinaten der Linien am unteren Rand
         try:
-             current_left_x = self.left_fit[0] * self.y_bottom**2 + \
-                 self.left_fit[1] * self.y_bottom + self.left_fit[2]
-             current_right_x = self.right_fit[0] * self.y_bottom**2 + \
-                 self.right_fit[1] * self.y_bottom + self.right_fit[2]
-             self.current_center = ((current_left_x + current_right_x) / 2)
+            current_right_x = self.right_fit[0] * self.y_bottom**2 + \
+                self.right_fit[1] * self.y_bottom + self.right_fit[2]
+            #if (self.left_fit[0] * self.right_fit[0]) > 0:
+            current_left_x = self.left_fit[0] * self.y_bottom**2 + \
+                self.left_fit[1] * self.y_bottom + self.left_fit[2]
+            #else:
+            #    current_left_x = current_right_x - 240
+
+            self.current_center = ((current_left_x + current_right_x) / 2)
         except (TypeError, IndexError):
-             self.current_center = None
-             self.center_offset = None
-             return None
+            self.current_center = None
+            self.center_offset = None
+            return None
 
         # Kamera als Bildmitte annehmen
         car_location = self.orig_frame.shape[1] / 2
@@ -129,8 +131,6 @@ class Lane:
         center_factor = params.get('center_factor', 0.03) # Standardwert wie im Original-Node
         center_offset_calculated = pixel_offset * center_factor
 
-        if print_to_terminal:
-            print(f"Pixel Offset: {pixel_offset:.2f} px, Calculated Offset: {center_offset_calculated:.4f}")
         self.center_offset = center_offset_calculated
         return self.center_offset
 
@@ -143,21 +143,18 @@ class Lane:
             return None, None
 
         y_eval = np.max(self.ploty)
-        ym_per_pix = params.get('ym_per_pix', self.YM_PER_PIX)
-        xm_per_pix = params.get('xm_per_pix', self.XM_PER_PIX)
-
         try:
-            left_fit_cr = np.polyfit(self.lefty * ym_per_pix, self.leftx * xm_per_pix, 2)
-            right_fit_cr = np.polyfit(self.righty * ym_per_pix, self.rightx * xm_per_pix, 2)
+            left_fit_cr = np.polyfit(self.lefty, self.leftx , 2)
+            right_fit_cr = np.polyfit(self.righty, self.rightx, 2)
         except (np.linalg.LinAlgError, TypeError):
              print("Fehler beim Polyfit für Krümmung."); self.left_curvem = None; self.right_curvem = None
              return None, None
 
         left_a = left_fit_cr[0]; right_a = right_fit_cr[0]
         if abs(left_a) < 1e-6: self.left_curvem = float('inf')
-        else: self.left_curvem = ((1 + (2*left_a*y_eval*ym_per_pix + left_fit_cr[1])**2)**1.5) / np.absolute(2*left_a)
+        else: self.left_curvem = ((1 + (2*left_a*y_eval + left_fit_cr[1])**2)**1.5) / np.absolute(2*left_a)
         if abs(right_a) < 1e-6: self.right_curvem = float('inf')
-        else: self.right_curvem = ((1 + (2*right_a*y_eval*ym_per_pix + right_fit_cr[1])**2)**1.5) / np.absolute(2*right_a)
+        else: self.right_curvem = ((1 + (2*right_a*y_eval + right_fit_cr[1])**2)**1.5) / np.absolute(2*right_a)
 
         if print_to_terminal:
             left_str = f"{self.left_curvem:.1f} m" if self.left_curvem != float('inf') else "straight"

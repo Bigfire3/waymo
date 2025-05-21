@@ -33,12 +33,13 @@ class LaneDetectionNode(Node):
              type=ParameterType.PARAMETER_BOOL, description=desc)
 
         # --- Parameter Deklarationen (basierend auf deiner "alten" Datei) ---
-        self.declare_parameter('block_size', 11, int_desc("Auto-S: block_size"))
-        self.declare_parameter('c_value', 20, int_desc("Auto-S: c_value"))
-        self.declare_parameter('center_factor', 0.03, float_desc("Center_Calc: factor")) # Schrittweite 0.001
+        self.declare_parameter('block_size', 7, int_desc("Auto-S: block_size"))
+        self.declare_parameter('c_value', 200, int_desc("Auto-S: c_value"))
+        self.declare_parameter('center_factor', 0.025, float_desc("Center_Calc: factor")) # Schrittweite 0.001
         # Beachte: min/max thickness hatten step=0.001, daher keine Rundung nötig für Standardwerte 2.5 und 5.0
-        self.declare_parameter('min_thickness', 2.5, ParameterDescriptor(type=ParameterType.PARAMETER_DOUBLE, description="Minimum thickness ratio", floating_point_range=[FloatingPointRange(from_value=0.01, to_value=200.0, step=0.001)]))
-        self.declare_parameter('max_thickness', 5.0, ParameterDescriptor(type=ParameterType.PARAMETER_DOUBLE, description="Maximum thickness ratio", floating_point_range=[FloatingPointRange(from_value=0.01, to_value=200.0, step=0.001)]))
+        self.declare_parameter('min_thickness', 2.0, float_desc("Minimum thickness ratio", min_val=0.01, max_val=200.0, step=0.001))
+        self.declare_parameter('max_thickness', 10.0, float_desc("Maximum thickness ratio", min_val=0.01, max_val=200.0, step=0.001))
+        # ROI Parameter
         self.declare_parameter('roi_top_left_w', 0.1, float_desc("ROI TL Breite")) # Schrittweite 0.001
         self.declare_parameter('roi_top_left_h', 0.65, float_desc("ROI TL Höhe")) # Schrittweite 0.001
         self.declare_parameter('roi_top_right_w', 0.9, float_desc("ROI TR Breite")) # Schrittweite 0.001
@@ -49,7 +50,15 @@ class LaneDetectionNode(Node):
         self.declare_parameter('roi_bottom_right_h', 1.0, float_desc("ROI BR Höhe")) # Schrittweite 0.001
         # desired_roi_padding_factor hat step=0.01, Standardwert 0.25 ist gültig
         self.declare_parameter('desired_roi_padding_factor', 0.25, float_desc("Ziel ROI Padding", max_val=0.4, step=0.01))
-        self.declare_parameter('min_compactness', 0.8, float_desc("min_compactness"))
+        
+        self.declare_parameter('binary_border', 150, int_desc("binary_border"))
+        self.declare_parameter('area', 30, int_desc("area"))
+        self.declare_parameter('aspect_ratio', 2.0, float_desc("aspect_ratio", min_val=0.1, max_val=10.0, step=0.1))
+        self.declare_parameter('compactness', 0.015, float_desc("compactness", min_val=0.001, max_val=0.2, step=0.001))
+
+        self.declare_parameter('sliding_window_margin_factor', 0.05, float_desc("sliding_window_margin_factor"))
+        self.declare_parameter('sliding_window_minpix', 50, float_desc("sliding_window_minpix"))
+
 
         # --- HINZUGEFÜGT: Parameter zum Steuern der Debug-Publisher ---
         self.declare_parameter('publish_lane_annotated', True, bool_desc("Publish final annotated lane image"))
@@ -146,8 +155,7 @@ class LaneDetectionNode(Node):
             self.histogram = self.lane_obj.calculate_histogram(plot=False)
 
             # 5. Sliding Windows / Fit finden (Verwendet Parameter aus lane.py, die indirekt von hier kommen könnten)
-            left_fit, right_fit, sliding_window_img = self.lane_obj.get_lane_line_indices_sliding_windows(
-                plot=True, **current_params) # plot=False, da Bild zurückkommt
+            left_fit, right_fit, sliding_window_img = self.lane_obj.get_lane_line_indices_sliding_windows(plot=True) # plot=False, da Bild zurückkommt
             if current_params.get('publish_sliding_window') and sliding_window_img is not None:
                 self._publish_image(self.pub_sliding_window, sliding_window_img, timestamp)
 
@@ -164,8 +172,6 @@ class LaneDetectionNode(Node):
                 # calculate_car_position verwendet center_factor
                 self.lane_obj.calculate_car_position(print_to_terminal=False, **current_params)
                 final_annotated_frame = self.lane_obj.display_curvature_offset(frame=overlay_frame, plot=False)
-            else:
-                 self.lane_obj.center_offset = 0.0 # Sicherstellen, dass Offset 0 ist, wenn keine Linie
 
             # 8. Finales annotiertes Bild publishen (falls aktiviert)
             if current_params.get('publish_lane_annotated'):
@@ -173,7 +179,11 @@ class LaneDetectionNode(Node):
 
             # --- Offset publishen ---
             offset_msg = Float64()
-            offset_msg.data = float(self.lane_obj.center_offset) if self.lane_obj.center_offset is not None else 0.0
+            if self.lane_obj.center_offset is not None:
+                offset_msg.data = float(self.lane_obj.center_offset)
+                self.lane_obj.prev_center_offset = self.lane_obj.center_offset
+            else:
+                offset_msg.data = float(self.lane_obj.prev_center_offset)
             self.driving_publisher_.publish(offset_msg)
 
         except CvBridgeError as e:
