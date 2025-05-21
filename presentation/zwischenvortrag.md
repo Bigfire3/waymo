@@ -1,4 +1,4 @@
-[![LiaScript](https://raw.githubusercontent.com/LiaScript/LiaScript/master/badges/course.svg)](https://liascript.github.io/course/?https://github.com/Bigfire3/waymo/blob/documentation-simon/presentation/zwischenvortrag.md)
+[![LiaScript](https://raw.githubusercontent.com/LiaScript/LiaScript/master/badges/course.svg)](https://liascript.github.io/course/?https://github.com/Bigfire3/waymo/blob/documentation/presentation/zwischenvortrag.md)
 
 # Zwischenvortrag: ROS 2 Projekt "waymo"
 
@@ -100,7 +100,7 @@
 
 ## 6. Ausblick
 
-+ ...
++ Spiegelung und Reflexion auf der Fahrbahn müssen noch besser behandelt werden
 
 **Vielen Dank für Ihre Aufmerksamkeit!**
 
