@@ -19,13 +19,15 @@
 
 ---
 
-## 1. Aktueller Projektstand
+<!-- Simon -->
+## 1. Projektstand
 
 ![Notion-Organisation](../Img/notion_zwischenstand.png "Übersicht über Aufgaben und Fristen zum Robotik Projekt in Notion-Datenbank")
 
 ---
 
-## 2. Planung der Nodes und Topics
+<!-- Fabian -->
+## 2. Systemarchitektur
 
 **Überlegungen:**
 
@@ -34,11 +36,11 @@
 + Planung einer topic-Struktur sinnvoll, um Konflikte zu vermeiden und Einheitlichkeit zu wahren
 + Planung von Publisher und Subscriber, um gewollte Funktionalität bestmöglich umzusetzen
 
-**Topic-Struktur:**
+**Topics und Nodes:**
 
-![Topic-Struktur](../Img/topic_structure.png "Übersicht über Subs/Pubs, Topics und Nodes")
++ Visualisierung der Node-Interaktionen (Nodes und Topics):
 
-## 3. Systemarchitektur & Komponenten
+![Architektur](../Img/node_overview_extended.png "Übersicht der ROS2-Nodes und Datenflüsse, erstellt mit rqt_graph")
 
 + Nodes:
   
@@ -51,20 +53,10 @@
   + `sign_detection_node.py`
   + `parking_node.py`
 
-+ Visualisierung der Node-Interaktionen (Nodes und Topics):
-
-    ![Architektur](../Img/node_overview_extended.png "Übersicht der ROS2-Nodes und Datenflüsse, erstellt mit rqt_graph")
-
-+ Wichtige externe Bibliotheken:
-
-  + OpenCV (für Auswertung und Debugging mit Kamerabildern)
-  + NumPy
-  + SciPy
-  + Matplotlib
-
 ---
 
-## 4. Kernfunktionen & Implementierungsdetails
+<!-- Lucas -->
+## 3. Kernfunktionen und Demonstration
 
 + **Ampelerkennung:**
 
@@ -78,11 +70,8 @@
 
   + ...
 
+<!-- Simon -->
 + **Park-Manöver:**
-
-  + ...
-
-+ **Rolle des State-Managers:**
 
   + ...
 
@@ -92,13 +81,8 @@
 
 ---
 
-## 5. Demonstration & Ergebnisse
-
-+ ...
-
----
-
-## 6. Ausblick
+<!-- Lucas -->
+## 4. Ausblick
 
 + Spiegelung und Reflexion auf der Fahrbahn müssen noch besser behandelt werden
 
