@@ -317,7 +317,7 @@ The nodes can be most easily started together using the provided launch file:
     ros2 launch waymo waymo_launch.py
     ```
 
-    This will start `lane_detection_node`, `obstacle_detection_node`, `state_manager_node`, and `gui_debug_node`.
+    This will start `lane_detection_node`, `obstacle_detection_node`, `passing_obstacle_node`, `traffic_light_detection_node`, `sign_detection_node`, `parking_node`, `state_manager_node`, and `gui_debug_node`.
 
 #### Alternative: Shell Script
 
@@ -336,7 +336,7 @@ Here are the steps for bash:
 2. Run the script:
 
     ```bash
-    ./run_waymo_bash.sh
+    ./run_waymo.bash
     ```
 
     *`(Paths in the script might need adjustment, e.g., the path to the workspace cd ~/ros2_ws and the source command)`*
@@ -359,12 +359,12 @@ The `keyboard_handler_node` allows you to manually pause/resume the robot's oper
     source ~/ros2_ws/install/setup.zsh
     ```
 
-* Run the node using the provided Zsh script (recommended):
+* Run the node using the provided script (recommended):
 
     ```bash
     cd ~/ros2_ws/src/waymo
     chmod +x run_keyboard_handler_node.zsh
-    ./run_keyboard_handler_node.zsh
+    ./run_keyboard_handler_node.bash
     ```
 
     Alternatively, run it directly (ensure your Conda environment, if used, is active):
@@ -382,7 +382,17 @@ The `keyboard_handler_node` allows you to manually pause/resume the robot's oper
 
 ### Modifying Parameters
 
-Parameters can be changed at runtime via the ROS2 CLI. Open a new terminal (and source the workspace again: `source ~/ros2_ws/install/setup.bash`).
+Parameters can primarily changed at runtime via the ROS2 rqt_reconfigure tool.
+Open a new terminal window and source the workspace again:
+   ```bash
+   source ~/ros2_ws/install/setup.bash
+   ```
+
+Parameters can also be changed at runtime via the ROS2 CLI. 
+Open a new terminal window and source the workspace again: 
+   ```bash
+   source ~/ros2_ws/install/setup.bash
+   ```
 
 **Examples:**
 
