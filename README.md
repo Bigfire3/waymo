@@ -20,7 +20,7 @@ You can start the package and the keyboard handler with the following steps:
 
    ```bash
    cd ~/ros2_ws/src/waymo
-   source ~ros2_ws/install/setup.bash
+   source ~/ros2_ws/install/setup.bash
    ./run_waymo.bash
    ```
 
