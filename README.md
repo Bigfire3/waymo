@@ -125,7 +125,7 @@ This package consists of several ROS2 nodes that work together:
 ### `state_manager_node` ([View Code](/waymo/state_manager_node.py))
 
 * **Functionality:**
-  * Acts as the main state machine. Key states include: `STATE_STOPPED_AT_TRAFFIC_LIGHT`, `STATE_FOLLOW_LANE`, `STATE_STOPPED_AT_OBSTACLE`, `STATE_PASSING_OBSTACLE`, `MANUAL_PAUSE`.
+  * Acts as the main state machine. Key states include: `STATE_STOPPED_AT_TRAFFIC_LIGHT`, `STATE_FOLLOW_LANE`, `STATE_STOPPED_AT_OBSTACLE`, `STATE_PASSING_OBSTACLE`, `STATE_STOPPED_AT_TRAFFIC_LIGHT`, `STATE_PARKING`, `MANUAL_PAUSE_STATE`.
   * Starts in the `STATE_STOPPED_AT_TRAFFIC_LIGHT` state.
   * Subscribes to:
     * Obstacle status (`/obstacle/blocked` - Bool, QoS: Best Effort).
@@ -133,9 +133,11 @@ This package consists of several ROS2 nodes that work together:
     * Obstacle passed signal (`/obstacle/passed` - Bool, QoS: Reliable).
     * Traffic light status (`/traffic_light` - Bool, QoS: Reliable).
     * Keyboard commands (`/keyboard_command` - String, QoS: Reliable).
+    * Sign detection (`/sign` - String, QoS: Reliable).
+    * Parking finished signal (`/parking/finished`- Bool, QoS: Reliable).
   * Determines the robot's current operational state based on inputs and internal logic.
   * **Initial Traffic Light Check:** Waits in `STATE_STOPPED_AT_TRAFFIC_LIGHT` until the `/traffic_light` topic sends `True` (indicating the configured stop-color is *not* detected). Once `True` is received, the initial traffic light check is considered done (subscription is destroyed).
-  * **Manual Pause:** Handles the `toggle_pause` command from `/keyboard_command` to enter/exit the `MANUAL_PAUSE` state. Stops the robot immediately upon pausing. Transitions directly to `STATE_FOLLOW_LANE` upon resuming.
+  * **Manual Pause:** Handles the `toggle_pause` command from `/keyboard_command` to enter/exit the `MANUAL_PAUSE` state. Stops the robot immediately upon pausing. Transitions directly to the previous state upon resuming.
   * Publishes the current state (`/robot/state` - String, QoS: Reliable).
   * Sends velocity commands (`/cmd_vel` - `geometry_msgs/Twist`) based on state (e.g., lane following uses P-control on offset with a 200Hz timer).
   * Relinquishes control of `/cmd_vel` during the `PASSING_OBSTACLE` state.
