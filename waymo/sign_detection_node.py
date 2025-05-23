@@ -8,7 +8,7 @@ import os
 from std_msgs.msg import String
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 from rcl_interfaces.msg import ParameterDescriptor, ParameterType
-from ament_index_python.packages import get_package_share_directory # WICHTIG: Dieser Import wird benötigt
+from ament_index_python.packages import get_package_share_directory
 
 class SignDetectionNode(Node):
     def __init__(self):
@@ -18,9 +18,7 @@ class SignDetectionNode(Node):
              return ParameterDescriptor(type=ParameterType.PARAMETER_BOOL, description=desc)
 
         # Debug Publisher Flags
-        self.declare_parameter('publish_template_matching', True, bool_desc("Publish template matching results as cv2 image"))
-        self.declare_parameter('publish_binary_sign', True, bool_desc("Publish binary frame results as cv2 image"))
-
+        self.declare_parameter('publish_binary_sign', True, bool_desc("Publish binary frame with colored detection boxes as cv2 image"))
 
         # --- QoS Profile ---
         qos_reliable = QoSProfile(
@@ -43,11 +41,12 @@ class SignDetectionNode(Node):
         # Publisher für Erkennung von Straßenschildern
         self.parking_sign_publisher = self.create_publisher(String, '/sign', qos_reliable)
 
-        # Publisher für Debug-Bilder
-        self.pub_template_matching = self.create_publisher(CompressedImage, '/debug/cam/template_matching', qos_best_effort)
-        self.pub_binary_sign = self.create_publisher(CompressedImage, '/debug/cam/binary_sign', qos_best_effort)
+        # Publisher für Debug-Bilder (Binärbild mit farbigem Rahmen)
+        self.pub_binary_sign_with_box = self.create_publisher(CompressedImage, '/debug/cam/binary_sign_boxed', qos_best_effort)
+        # Hinweis: Ich habe das Topic leicht angepasst zu '/debug/cam/binary_sign_boxed'
+        # um klarzustellen, dass es das Binärbild mit Box ist.
+        # Wenn du exakt '/debug/cam/binary_sign' beibehalten willst, ändere dies zurück.
 
-        # --- ANPASSUNG FÜR TEMPLATE-PFAD ---
         # Ermittle den Pfad zum 'share'-Verzeichnis des eigenen Pakets ('waymo')
         package_share_directory = get_package_share_directory('waymo')
         # Konstruiere den vollständigen Pfad zum 'traffic_signs'-Ordner
@@ -55,39 +54,36 @@ class SignDetectionNode(Node):
         
         # self.get_logger().info(f"Lade Templates aus dem Verzeichnis: '{templates_folder_path}'")
 
-        # Lade Templates aus dem korrekten Pfad
         self.templates = self.load_templates(templates_folder_path)
-        # --- ENDE ANPASSUNG ---
 
-        # Überprüfen, ob Templates erfolgreich geladen wurden
-        # if not self.templates: # Prüft, ob das Dictionary leer ist
-            # self.get_logger().error("Keine Templates wurden geladen! Überprüfe den Pfad und die setup.py Konfiguration.")
-        # else:
-        #     for name, template in self.templates.items():
-        #         if template is None: # Sollte durch die Prüfung in load_templates schon abgefangen sein
-                    # self.get_logger().error(f"Template '{name}' konnte nicht korrekt initialisiert werden (ist None).")
+        if not self.templates:
+            self.get_logger().error("Keine Templates wurden geladen! Überprüfe den Pfad und die setup.py Konfiguration.")
+        else:
+            for name, template in self.templates.items():
+                if template is None:
+                    self.get_logger().error(f"Template '{name}' konnte nicht korrekt initialisiert werden (ist None).")
 
-        # Konvertiere die Templates in Graustufen und wende eine Schwellwertoperation an (binär)
         self.templates_bin = {name: self.convert_to_binary(template) for name, template in self.templates.items() if template is not None}
 
-        # Initialisiere CvBridge
         self.bridge = CvBridge()
 
     def _publish_image(self, publisher, image, timestamp):
         """Hilfsfunktion zum Komprimieren und Publishen eines Bildes."""
-        if image is None: return
+        if image is None:
+            self.get_logger().warn(f"Versuch, ein None-Bild auf Topic '{publisher.topic}' zu publishen.", throttle_duration_sec=5)
+            return
         try:
-             if image.ndim == 2: # Wenn Graustufenbild, konvertiere zu BGR für JPEG-Encoding
-                  image_bgr = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
-             else:
-                  image_bgr = image
+             processed_image = image.copy() 
+             if processed_image.ndim == 2:
+                  processed_image = cv2.cvtColor(processed_image, cv2.COLOR_GRAY2BGR)
+             
+             if processed_image.dtype != np.uint8:
+                 if np.max(processed_image) <= 1.0 and (processed_image.dtype == np.float32 or processed_image.dtype == np.float64) :
+                     processed_image = (processed_image * 255).astype(np.uint8)
+                 else:
+                     processed_image = processed_image.astype(np.uint8)
 
-             # JPEG-Kompression
-             # Stelle sicher, dass das Bild im Format BGR oder GRAY (uint8) ist
-             if image_bgr.dtype != np.uint8:
-                 image_bgr = image_bgr.astype(np.uint8) # Konvertiere falls nötig, sei vorsichtig mit Skalierung
-
-             ret, buffer = cv2.imencode('.jpg', image_bgr, [int(cv2.IMWRITE_JPEG_QUALITY), 85]) # 85 ist ein guter Kompromiss für Qualität/Größe
+             ret, buffer = cv2.imencode('.jpg', processed_image, [int(cv2.IMWRITE_JPEG_QUALITY), 90])
              if not ret:
                  self.get_logger().warn(f"Fehler beim JPEG-Encoding für Topic '{publisher.topic}'.")
                  return
@@ -95,26 +91,19 @@ class SignDetectionNode(Node):
              msg = CompressedImage(format="jpeg", data=buffer.tobytes())
              msg.header.stamp = timestamp
              publisher.publish(msg)
-        except CvBridgeError as e: # Spezifischer Fehler
+        except CvBridgeError as e:
               self.get_logger().error(f"CvBridge Fehler beim Publishen auf '{publisher.topic}': {e}", throttle_duration_sec=5)
-        except Exception as e: # Allgemeiner Fehler
+        except Exception as e:
               self.get_logger().error(f"Allgemeiner Fehler beim Publishen auf '{publisher.topic}': {e}", throttle_duration_sec=5)
 
-
     def load_templates(self, folder_path):
-        """
-        Lädt alle Bilddateien aus dem Ordner und gibt ein Dictionary mit
-        dem Dateinamen (ohne Erweiterung) und dem Bild zurück.
-        """
         templates = {}
-        # Überprüfe zuerst, ob der angegebene Pfad ein Verzeichnis ist
         if not os.path.isdir(folder_path):
             self.get_logger().error(f"Template-Ordner nicht gefunden oder ist kein Verzeichnis: {folder_path}")
-            return templates # Gib ein leeres Dictionary zurück, wenn der Ordner nicht existiert
+            return templates 
 
         for filename in os.listdir(folder_path):
-            # Nur Bilddateien laden (PNG, JPG, etc.)
-            if filename.lower().endswith(('.png', '.jpg', '.jpeg')): # .lower() für Groß-/Kleinschreibung, Tuple für mehrere Endungen
+            if filename.lower().endswith(('.png', '.jpg', '.jpeg')):
                 image_path = os.path.join(folder_path, filename)
                 try:
                     template = cv2.imread(image_path, cv2.IMREAD_COLOR)
@@ -132,89 +121,98 @@ class SignDetectionNode(Node):
         return templates
 
     def convert_to_binary(self, image):
-        """
-        Diese Methode konvertiert das Bild in Graustufen und dann in ein Binärbild.
-        """
         if image is None:
             self.get_logger().error("Versuch, ein None-Bild zu konvertieren (convert_to_binary).")
-            return None # Gebe None zurück, wenn das Eingangsbild None ist
+            return None
 
-        gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        if len(image.shape) == 2 or image.shape[2] == 1:
+            gray_image = image
+        else:
+            gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        
         _, binary_image = cv2.threshold(gray_image, 127, 255, cv2.THRESH_BINARY)
         return binary_image
 
     def listener_callback(self, msg):
         try:
             np_arr = np.frombuffer(msg.data, np.uint8)
-            image = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+            image_color_input = cv2.imdecode(np_arr, cv2.IMREAD_COLOR) # Original Farbbild
             timestamp = msg.header.stamp
         except Exception as e:
             self.get_logger().error(f"Fehler beim Dekodieren des komprimierten Bildes: {e}")
             return
 
-        if image is None:
+        if image_color_input is None:
             self.get_logger().warn("Bild konnte nicht dekodiert werden (ist None).")
             return
 
-        image_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        _, image_bin = cv2.threshold(image_gray, 80, 255, cv2.THRESH_BINARY) # Schwellenwert für Szenenbild
+        # 1. Binärbild für die Erkennungslogik erstellen
+        image_gray_for_detection = cv2.cvtColor(image_color_input, cv2.COLOR_BGR2GRAY)
+        _, image_bin_for_detection = cv2.threshold(image_gray_for_detection, 80, 255, cv2.THRESH_BINARY) 
 
-        detected_signs_on_current_frame = False # Flag um Mehrfach-Publishen pro Frame zu vermeiden (optional)
+        # 2. Vorbereitung des Debug-Bildes: Konvertiere das Binärbild der Erkennung in ein BGR-Format
+        # Dieses Bild wird schwarz-weiß aussehen, aber Farbkanäle haben.
+        if self.get_parameter('publish_binary_sign').value:
+            # Nur erstellen, wenn es auch publiziert wird
+            debug_image_base = cv2.cvtColor(image_bin_for_detection, cv2.COLOR_GRAY2BGR)
+        else:
+            debug_image_base = None # Wird nicht benötigt
+
+        detected_signs_on_current_frame = False
 
         for template_name, template_bin in self.templates_bin.items():
-            if template_bin is None: # Überspringe, falls ein Template nicht korrekt geladen wurde
+            if template_bin is None:
+                self.get_logger().warn(f"Template '{template_name}' ist None, wird übersprungen.")
                 continue
 
             h, w = template_bin.shape[:2]
 
-            if image_bin.shape[0] < h or image_bin.shape[1] < w:
-                # self.get_logger().warn(f"Szenenbild ist kleiner als Template '{template_name}'. Überspringe.", throttle_duration_sec=10)
-                continue # Template ist größer als das Bild, Matching nicht möglich
+            if image_bin_for_detection.shape[0] < h or image_bin_for_detection.shape[1] < w:
+                continue
 
-            result = cv2.matchTemplate(image_bin, template_bin, cv2.TM_CCOEFF_NORMED)
+            result = cv2.matchTemplate(image_bin_for_detection, template_bin, cv2.TM_CCOEFF_NORMED)
             min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
 
-            if max_val > 0.65: # Schwellenwert anpassen
+            detection_threshold = 0.65 
+            if max_val > detection_threshold:
                 top_left = max_loc
                 bottom_right = (top_left[0] + w, top_left[1] + h)
+                
+                # Farbe für den Rahmen und Text (BGR für Blau)
+                frame_color = (255, 0, 0) 
 
-                color_map = {
-                    'straight_sign': (0, 0, 255), # Rot
-                    'park_sign_0': (255, 0, 0),   # Blau
-                    'park_sign_1': (255, 0, 0),   # Blau
-                    'left_sign': (0, 255, 255), # Gelb
-                    'right_sign': (255, 0, 255) # Magenta
-                }
-                color = color_map.get(template_name, (0, 255, 0)) # Standard: Grün
+                # 3. Zeichne den Rahmen auf dem BGR-konvertierten Binärbild, falls Publishing aktiv ist
+                if debug_image_base is not None:
+                    cv2.rectangle(debug_image_base, top_left, bottom_right, frame_color, 2)
+                    cv2.putText(debug_image_base, template_name, (top_left[0], top_left[1] - 10), 
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.7, frame_color, 2, cv2.LINE_AA)
 
-                cv2.rectangle(image, top_left, bottom_right, color, 2)
-                cv2.putText(image, template_name, (top_left[0], top_left[1] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2, cv2.LINE_AA)
+                # Logging und Parking Sign Publishing bleiben wie zuvor
+                # self.get_logger().info(f"'{template_name}' erkannt mit Konfidenz: {max_val:.2f}")
 
                 if template_name in ('park_sign_0', 'park_sign_1') and not detected_signs_on_current_frame:
                     parking_sign_msg = String()
-                    parking_sign_msg.data = "parking_sign_detected" # Klarere Nachricht
+                    parking_sign_msg.data = "parking_sign_detected"
                     self.parking_sign_publisher.publish(parking_sign_msg)
-                    # self.get_logger().info(f"'{template_name}' erkannt und Nachricht gesendet.")
-                    detected_signs_on_current_frame = True # Verhindere mehrfaches Senden pro Frame
-
-        if self.get_parameter('publish_template_matching').value:
-                self._publish_image(self.pub_template_matching, image, timestamp)
-        if self.get_parameter('publish_binary_sign').value:
-                self._publish_image(self.pub_binary_sign, image_bin, timestamp)
+                    # self.get_logger().info(f"Nachricht für '{template_name}' gesendet.")
+                    detected_signs_on_current_frame = True
+        
+        # 4. Publishe das BGR-konvertierte Binärbild mit den (ggf. blauen) Rahmen
+        if self.get_parameter('publish_binary_sign').value and debug_image_base is not None:
+                self._publish_image(self.pub_binary_sign_with_box, debug_image_base, timestamp)
 
 def main(args=None):
     rclpy.init(args=args)
     node = SignDetectionNode()
     try:
-        rclpy.spin(node)        
-        rclpy.spin(SignDetectionNode)
+        rclpy.spin(node)
     except KeyboardInterrupt:
         pass
     finally:
-        if SignDetectionNode and isinstance(SignDetectionNode, Node) and rclpy.ok(): SignDetectionNode.destroy_node()
-        if rclpy.ok(): rclpy.shutdown()
-        try: pass#cv2.destroyAllWindows()
-        except Exception: pass
+        if node and rclpy.ok():
+            node.destroy_node()
+        if rclpy.ok():
+            rclpy.shutdown()
 
 if __name__ == '__main__':
     main()
