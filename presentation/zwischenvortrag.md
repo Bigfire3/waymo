@@ -53,7 +53,7 @@
 
 + **Hindernisumfahrung:**
 
-  !?[Demo-Video Hindernisumfahrung](https://youtube.com/shorts/McEjPxxlAfo)
+  !?[Demo-Video Hindernisumfahrung](https://youtu.be/McEjPxxlAfo)
 
 + **Park-Schild-Erkennung:**
 
@@ -62,12 +62,14 @@
 <!-- Simon -->
 + **Park-Manöver:**
 
-  !?[Demo-Video Park-Manöver](https://youtube.com/shorts/R6ZFzQ-cY1E)
+  !?[Demo-Video Park-Manöver](https://youtu.be/R6ZFzQ-cY1E)
 
 + **GUI Debug Node und Keyboard Handler:**
 
   ![Übersicht Topics und Nodes für Debug-Canva](../Img/debug_topics_nodes.png "Übersicht der Topics und Nodes, die für das Debug-Canva genutzt werden, erstellt mit rqt_graph")
+
   ![Debug Canva](../Img/debug_canva.png "Aktuelles Debug Canva")
+  
   + Keyboard Handler: Möglichkeit zum manuellen Stoppen des Roboters
   + in separatem Terminal mit den Tasten 's' für Stop/Start und 'd' zum Togglen des Debug Canva
 
