@@ -33,7 +33,6 @@
 
 + Struktur des Projektes als einzelnes Package
 + Erweiterung durch hinzufügen von Nodes mit neuem Funktionsumfang
-+ Planung einer topic-Struktur sinnvoll, um Konflikte zu vermeiden und Einheitlichkeit zu wahren
 + Planung von Publisher und Subscriber, um gewollte Funktionalität bestmöglich umzusetzen
 
 **Topics und Nodes:**
