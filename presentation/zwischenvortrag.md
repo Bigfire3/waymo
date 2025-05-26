@@ -42,17 +42,6 @@
 
 ![Architektur](../Img/node_overview_extended.png "Übersicht der ROS2-Nodes und Datenflüsse, erstellt mit rqt_graph")
 
-+ Nodes:
-  
-  + `gui_debug_node.py`
-  + `state_manager_node.py`
-  + `lane_detection_node.py`
-  + `obstacle_detection_node.py`
-  + `traffic_light_detection_node.py`
-  + `passing_obstacle_node.py`
-  + `sign_detection_node.py`
-  + `parking_node.py`
-
 ---
 
 <!-- Lucas -->
