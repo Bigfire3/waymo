@@ -50,6 +50,8 @@
 
   ![Ampelerkennung](../Img/traffic_light.png "Debug Bilder zur Ampelerkennung")
 
+  !?[Demo-Video](https://youtu.be/qhHBxUX1kt0)
+
 + **Hindernisumfahrung:**
 
   !?[Demo-Video Hindernisumfahrung](https://youtu.be/McEjPxxlAfo)
@@ -68,7 +70,7 @@
   ![Übersicht Topics und Nodes für Debug-Canva](../Img/debug_topics_nodes.png "Übersicht der Topics und Nodes, die für das Debug-Canva genutzt werden, erstellt mit rqt_graph")
 
   ![Debug Canva](../Img/debug_canva.png "Aktuelles Debug Canva")
-  
+
   + Keyboard Handler: Möglichkeit zum manuellen Stoppen des Roboters
   + in separatem Terminal mit den Tasten 's' für Stop/Start und 'd' zum Togglen des Debug Canva
 
