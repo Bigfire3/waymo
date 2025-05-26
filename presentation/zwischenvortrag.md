@@ -53,7 +53,7 @@
 
 + **Hindernisumfahrung:**
 
-  !?[Demo-Video Hindernisumfahrung](https://youtube.com/shorts/McEjPxxlAfo "Demo-Video zum Fahrmanövers Hidnernisumfahrung")
+  !?[Demo-Video Hindernisumfahrung](https://youtube.com/shorts/McEjPxxlAfo)
 
 + **Park-Schild-Erkennung:**
 
@@ -62,7 +62,7 @@
 <!-- Simon -->
 + **Park-Manöver:**
 
-  !?[Demo-Video Park-Manöver](https://youtube.com/shorts/R6ZFzQ-cY1E "Demo-Video zum Park-Manöver")
+  !?[Demo-Video Park-Manöver](https://youtube.com/shorts/R6ZFzQ-cY1E)
 
 + **GUI Debug Node und Keyboard Handler:**
 
