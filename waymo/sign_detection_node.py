@@ -148,7 +148,7 @@ class SignDetectionNode(Node):
 
         # 1. Binärbild für die Erkennungslogik erstellen
         image_gray_for_detection = cv2.cvtColor(image_color_input, cv2.COLOR_BGR2GRAY)
-        _, image_bin_for_detection = cv2.threshold(image_gray_for_detection, 80, 255, cv2.THRESH_BINARY) 
+        _, image_bin_for_detection = cv2.threshold(image_gray_for_detection, 127, 255, cv2.THRESH_BINARY) 
 
         # 2. Vorbereitung des Debug-Bildes: Konvertiere das Binärbild der Erkennung in ein BGR-Format
         # Dieses Bild wird schwarz-weiß aussehen, aber Farbkanäle haben.
