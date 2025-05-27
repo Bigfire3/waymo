@@ -29,11 +29,17 @@
 <!-- Fabian -->
 ## 2. Systemarchitektur
 
+                         {{0-1}}
+********************************************************************************
+
 **Überlegungen:**
 
 + Struktur des Projektes als einzelnes Package
 + Erweiterung durch hinzufügen von Nodes mit neuem Funktionsumfang
 + Planung von Publisher und Subscriber, um gewollte Funktionalität bestmöglich umzusetzen
+
+                         {{1-2}}
+********************************************************************************
 
 **Topics und Nodes:**
 
@@ -46,26 +52,42 @@
 <!-- Lucas -->
 ## 3. Kernfunktionen und Demonstration
 
-+ **Ampelerkennung:**
+                         {{1-2}}
+********************************************************************************
+
+**Ampelerkennung:**
 
   ![Ampelerkennung](../Img/traffic_light.png "Debug Bilder zur Ampelerkennung")
 
   !?[Demo-Video](https://youtu.be/qhHBxUX1kt0)
 
-+ **Hindernisumfahrung:**
+
+                         {{2-3}}
+********************************************************************************
+
+**Hindernisumfahrung:**
 
   !?[Demo-Video Hindernisumfahrung](https://youtu.be/McEjPxxlAfo)
 
-+ **Park-Schild-Erkennung:**
+                         {{3-4}}
+********************************************************************************
+
+**Park-Schild-Erkennung:**
 
   ![Park-Schild-Erkennung](../Img/parking_sign.png "Debug Bild zur Park-Schild-Erkennung")
 
+                         {{4-5}}
+********************************************************************************
+
 <!-- Simon -->
-+ **Park-Manöver:**
+**Park-Manöver:**
 
   !?[Demo-Video Park-Manöver](https://youtu.be/R6ZFzQ-cY1E)
 
-+ **GUI Debug Node und Keyboard Handler:**
+                         {{5-6}}
+********************************************************************************
+
+**GUI Debug Node und Keyboard Handler:**
 
   ![Übersicht Topics und Nodes für Debug-Canva](../Img/debug_topics_nodes.png "Übersicht der Topics und Nodes, die für das Debug-Canva genutzt werden, erstellt mit rqt_graph")
 
