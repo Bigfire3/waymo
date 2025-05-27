@@ -104,7 +104,7 @@
 
   ![Debug Canva](../Img/debug_canva.png "Aktuelles Debug Canva")
 
-  + Keyboard Handler: Möglichkeit zum manuellen Stoppen des Roboters
+  + Keyboard Handler: Möglichkeit zum manuellen Stoppen des Roboters  
   + in separatem Terminal mit den Tasten 's' für Stop/Start und 'd' zum Togglen des Debug Canva
 
 ********************************************************************************
