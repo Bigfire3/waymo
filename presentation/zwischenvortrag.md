@@ -49,6 +49,8 @@
 
 ![Architektur](../Img/node_overview_extended.png "Übersicht der ROS2-Nodes und Datenflüsse, erstellt mit rqt_graph")
 
+********************************************************************************
+
 ---
 
 <!-- Lucas -->
