@@ -21,13 +21,16 @@ STATE_STOPPED_AT_OBSTACLE = 'STOPPED_AT_OBSTACLE'
 STATE_PASSING_OBSTACLE = 'PASSING_OBSTACLE'
 STATE_STOPPED_AT_TRAFFIC_LIGHT = 'STOPPED_AT_TRAFFIC_LIGHT'
 STATE_PARKING = 'PARKING'
+STATE_INTERSECTION_DRIVING_STRAIGHT = 'INTERSEC_DRIVING_STRAIGHT'
+STATE_INTERSECTION_TURNING_RIGHT = 'INTERSEC_TURNING_RIGHT'
+STATE_INTERSECTION_TURNING_LEFT = 'INTERSEC_TURNING_LEFT'
 
 
 class StateMachine(rclpy.node.Node):
 
     def __init__(self):
         super().__init__('state_manager_node')
-        self.declare_parameter('drivingspeed', 0.15)
+        self.declare_parameter('drivingspeed', 0.125)  # Standard-Fahrgeschwindigkeit in m/s
 
         # Interne Variablen
         self.center_offset = 0.0
@@ -38,8 +41,12 @@ class StateMachine(rclpy.node.Node):
         self.traffic_light_is_red = True # Annahme: Ampel ist initial rot
         self.obstacle_just_passed = False
         self.initial_traffic_light_check_done = False
-        self.parking_sign_visually_detected = False # Um zu wissen, dass das Schild mal gesehen wurde
+        self.parking_sign_visually_detected = False
         self.parking_maneuver_finished = False # Flag, um den Abschluss des Parkens zu erkennen
+        self.straight_sign_visually_detected = False
+        self.right_sign_visually_detected = False
+        self.left_sign_visually_detected = False
+        self.intersection_maneuver_finished = False
 
         # QoS Profile
         qos_sensor = QoSProfile(reliability=ReliabilityPolicy.BEST_EFFORT, history=HistoryPolicy.KEEP_LAST, depth=1)
@@ -53,6 +60,7 @@ class StateMachine(rclpy.node.Node):
         self.keyboard_cmd_subscription = self.create_subscription(String, KEYBOARD_COMMAND_TOPIC, self.keyboard_command_callback, qos_reliable)
         self.sign_subscription = self.create_subscription(String, '/sign', self.sign_detection_callback, qos_reliable)
         self.parking_finished_subscription = self.create_subscription(Bool, '/parking/finished', self.parking_finished_callback, qos_reliable)
+        self.intersection_finished_callback = self.create_subscription(Bool, '/intersection/finished', self.intersection_finished_callback, qos_reliable)
 
         # Publishers
         self.state_publisher_ = self.create_publisher(String, 'robot/state', qos_reliable)
@@ -136,13 +144,27 @@ class StateMachine(rclpy.node.Node):
             self.parking_sign_visually_detected = True
             # Der eigentliche Zustandswechsel zu PARKING wird in der control_loop entschieden,
             # um Prioritäten (z.B. nicht während PASSING_OBSTACLE) zu berücksichtigen.
-        # Andere Schilder könnten hier behandelt werden, falls die msg.data erweitert wird.
+        if msg.data == "straight_sign_detected":
+            # self.get_logger().info("Visuelles Geradeaus-Schild Signal empfangen.")
+            self.straight_sign_visually_detected = True
+        if msg.data == "right_sign_detected":
+            # self.get_logger().info("Visuelles Rechts-Schild Signal empfangen.")
+            self.right_sign_visually_detected = True
+        if msg.data == "left_sign_detected":
+            # self.get_logger().info("Visuelles Links-Schild Signal empfangen.")
+            self.left_sign_visually_detected = True
 
     def parking_finished_callback(self, msg: Bool):
         if self.manual_pause_active: return
 
         if msg.data:
             self.parking_maneuver_finished = True
+    
+    def intersection_finished_callback(self, msg: Bool):
+        if self.manual_pause_active: return
+
+        if msg.data:
+            self.intersection_maneuver_finished = True
 
     def control_loop_callback(self):
         if self.manual_pause_active:
@@ -214,15 +236,87 @@ class StateMachine(rclpy.node.Node):
             
             # h) Kein Hindernis und nicht in Spezialzustand -> FOLLOW_LANE
             #    (Auch wenn von STOPPED_AT_OBSTACLE kommend und Hindernis weg ist)
-            elif not self.obstacle_is_blocking and \
-                 current_internal_state not in [STATE_PASSING_OBSTACLE, STATE_PARKING, STATE_FOLLOW_LANE]:
+            elif not self.obstacle_is_blocking and current_internal_state not in [ \
+                STATE_PASSING_OBSTACLE, STATE_PARKING, STATE_FOLLOW_LANE, \
+                STATE_INTERSECTION_DRIVING_STRAIGHT, STATE_INTERSECTION_TURNING_RIGHT, \
+                STATE_INTERSECTION_TURNING_LEFT]:
                 # self.get_logger().info("Kein Hindernis (mehr) und nicht in Spezialzustand. Wechsel zu FOLLOW_LANE.")
                 next_state = STATE_FOLLOW_LANE
-            
-            # i) Wenn bereits in FOLLOW_LANE und keine anderen Bedingungen zutreffen, bleibe dabei.
-            elif current_internal_state == STATE_FOLLOW_LANE and not self.obstacle_is_blocking and not self.parking_sign_visually_detected and not self.parking_maneuver_finished:
-                pass
+        
+            # i) Geradeaus-Schild erkannt und bereit für Geradeausfahrt?
+            # Hinzugefügt: Prüfe, ob nicht schon in einem Intersection State, um direkten re-trigger zu vermeiden.
+            elif self.straight_sign_visually_detected and \
+                    current_internal_state not in [
+                        STATE_PASSING_OBSTACLE, STATE_PARKING, STATE_STOPPED_AT_TRAFFIC_LIGHT,
+                        STATE_INTERSECTION_DRIVING_STRAIGHT, STATE_INTERSECTION_TURNING_LEFT, STATE_INTERSECTION_TURNING_RIGHT # Wichtig!
+                    ]:
+                # self.get_logger().info("Geradeaus-Schild erkannt. Wechsel zu INTERSECTION_DRIVING_STRAIGHT.")
+                next_state = STATE_INTERSECTION_DRIVING_STRAIGHT
+                self.intersection_maneuver_finished = False # Reset, da wir jetzt fahren wollen
+                self.straight_sign_visually_detected = False # SOFORT ZURÜCKSETZEN
 
+            # j) Rechts-Schild erkannt und bereit für Rechtsabbiegen?
+            # Hinzugefügt: Prüfe, ob nicht schon in einem Intersection State.
+            elif self.right_sign_visually_detected and \
+                 current_internal_state not in [
+                        STATE_PASSING_OBSTACLE, STATE_PARKING, STATE_STOPPED_AT_TRAFFIC_LIGHT,
+                        STATE_INTERSECTION_DRIVING_STRAIGHT, STATE_INTERSECTION_TURNING_LEFT, STATE_INTERSECTION_TURNING_RIGHT # Wichtig!
+                    ]:
+                # self.get_logger().info("Rechts-Schild erkannt. Wechsel zu INTERSECTION_TURNING_RIGHT.")
+                next_state = STATE_INTERSECTION_TURNING_RIGHT
+                # self.right_sign_visually_detected = False # Reset Flag -> FEHLTE HIER!
+                self.intersection_maneuver_finished = False # Reset, da wir jetzt abbiegen wollen
+                self.right_sign_visually_detected = False # SOFORT ZURÜCKSETZEN
+
+
+            # k) Links-Schild erkannt und bereit für Linksabbiegen?
+            # Hinzugefügt: Prüfe, ob nicht schon in einem Intersection State.
+            elif self.left_sign_visually_detected and \
+                 current_internal_state not in [
+                        STATE_PASSING_OBSTACLE, STATE_PARKING, STATE_STOPPED_AT_TRAFFIC_LIGHT,
+                        STATE_INTERSECTION_DRIVING_STRAIGHT, STATE_INTERSECTION_TURNING_LEFT, STATE_INTERSECTION_TURNING_RIGHT # Wichtig!
+                    ]:
+                # self.get_logger().info("Links-Schild erkannt. Wechsel zu INTERSECTION_TURNING_LEFT.")
+                next_state = STATE_INTERSECTION_TURNING_LEFT
+                # self.left_sign_visually_detected = False # Reset Flag -> FEHLTE HIER!
+                self.intersection_maneuver_finished = False # Reset, da wir jetzt abbiegen wollen
+                self.left_sign_visually_detected = False # SOFORT ZURÜCKSETZEN
+
+            # l) Wenn bereits in INTERSECTION_DRIVING_STRAIGHT, INTERSECTION_TURNING_RIGHT oder INTERSECTION_TURNING_LEFT
+            #    und das Manöver abgeschlossen ist, wechsle in FOLLOW_LANE.
+            elif current_internal_state == STATE_INTERSECTION_DRIVING_STRAIGHT \
+            or current_internal_state == STATE_INTERSECTION_TURNING_RIGHT \
+            or current_internal_state == STATE_INTERSECTION_TURNING_LEFT \
+            and self.intersection_maneuver_finished:
+                # Wenn das Manöver an der Kreuzung abgeschlossen ist, zurück zu FOLLOW_LANE
+                # self.get_logger().info("Kreuzungsmanöver abgeschlossen. Wechsel zu FOLLOW_LANE.")
+                next_state = STATE_FOLLOW_LANE
+                self.intersection_maneuver_finished = False # Reset Flag, da das Manöver abgeschlossen ist
+                self.straight_sign_visually_detected = False # Reset des Schild-Flags
+                self.right_sign_visually_detected = False # Reset des Schild-Flags
+                self.left_sign_visually_detected = False # Reset des Schild-Flags
+
+            # m) Wenn bereits in INTERSECTION_DRIVING_STRAIGHT, INTERSECTION_TURNING_RIGHT oder INTERSECTION_TURNING_LEFT
+            #    und das Manöver noch nicht abgeschlossen ist, bleibe im aktuellen Zustand.
+            elif current_internal_state == STATE_INTERSECTION_DRIVING_STRAIGHT \
+            or current_internal_state == STATE_INTERSECTION_TURNING_RIGHT \
+            or current_internal_state == STATE_INTERSECTION_TURNING_LEFT \
+            and not self.intersection_maneuver_finished:
+                # Die intersection_node steuert die Bewegung und das Anhalten.
+                # Der state_manager bleibt in diesem Zustand, bis die intersection_finished_callback aufgerufen wird.
+                pass
+            
+            # n) Wenn bereits in FOLLOW_LANE und keine anderen Bedingungen zutreffen, bleibe dabei.
+            elif \
+            current_internal_state == STATE_FOLLOW_LANE \
+            and not self.obstacle_is_blocking \
+            and not self.parking_sign_visually_detected \
+            and not self.parking_maneuver_finished \
+            and not self.straight_sign_visually_detected \
+            and not self.right_sign_visually_detected \
+            and not self.left_sign_visually_detected \
+            and not self.intersection_maneuver_finished:
+                pass
 
         # Zustandswechsel durchführen, wenn nötig
         if next_state != current_internal_state:
@@ -242,7 +336,11 @@ class StateMachine(rclpy.node.Node):
         elif self.state == STATE_PARKING:
             # Keine Geschwindigkeitsbefehle senden, wird von parking_node übernommen
             pass
-
+        elif self.state == STATE_INTERSECTION_DRIVING_STRAIGHT or \
+             self.state == STATE_INTERSECTION_TURNING_RIGHT or \
+             self.state == STATE_INTERSECTION_TURNING_LEFT:
+            # Keine Geschwindigkeitsbefehle senden, wird von intersection_node übernommen
+            pass
 
         self.publish_current_state() # Zustand periodisch senden
 

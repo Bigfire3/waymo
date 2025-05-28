@@ -196,6 +196,27 @@ class SignDetectionNode(Node):
                     self.parking_sign_publisher.publish(parking_sign_msg)
                     # self.get_logger().info(f"Nachricht für '{template_name}' gesendet.")
                     detected_signs_on_current_frame = True
+                
+                if template_name in ('straight_sign') and not detected_signs_on_current_frame:
+                    parking_sign_msg = String()
+                    parking_sign_msg.data = "straight_sign_detected"
+                    self.parking_sign_publisher.publish(parking_sign_msg)
+                    # self.get_logger().info(f"Nachricht für '{template_name}' gesendet.")
+                    detected_signs_on_current_frame = True
+                
+                if template_name in ('left_sign') and not detected_signs_on_current_frame:
+                    parking_sign_msg = String()
+                    parking_sign_msg.data = "left_sign_detected"
+                    self.parking_sign_publisher.publish(parking_sign_msg)
+                    # self.get_logger().info(f"Nachricht für '{template_name}' gesendet.")
+                    detected_signs_on_current_frame = True
+
+                if template_name in ('right_sign') and not detected_signs_on_current_frame:
+                    parking_sign_msg = String()
+                    parking_sign_msg.data = "right_sign_detected"
+                    self.parking_sign_publisher.publish(parking_sign_msg)
+                    # self.get_logger().info(f"Nachricht für '{template_name}' gesendet.")
+                    detected_signs_on_current_frame = True
         
         # 4. Publishe das BGR-konvertierte Binärbild mit den (ggf. blauen) Rahmen
         if self.get_parameter('publish_binary_sign').value and debug_image_base is not None:

@@ -34,6 +34,7 @@ setup(
             'keyboard_handler_node = waymo.keyboard_handler_node:main',
             'sign_detection_node = waymo.sign_detection_node:main',
             'parking_node = waymo.parking_node:main',
+            'intersection_handling_node = waymo.intersection_handling_node:main',
         ],
     },
 )

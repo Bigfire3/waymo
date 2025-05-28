@@ -59,4 +59,10 @@ def generate_launch_description():
             name='parking_node',
             output='screen'
         ),
+        Node(
+            package='waymo',
+            executable='intersection_handling_node',
+            name='intersection_handling_node',
+            output='screen'
+        ),
     ])
