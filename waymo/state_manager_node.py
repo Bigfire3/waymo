@@ -27,7 +27,7 @@ class StateMachine(rclpy.node.Node):
 
     def __init__(self):
         super().__init__('state_manager_node')
-        self.declare_parameter('drivingspeed', 0.15)
+        self.declare_parameter('drivingspeed', 0.125)  # Standardgeschwindigkeit in m/s
 
         # Interne Variablen
         self.center_offset = 0.0
