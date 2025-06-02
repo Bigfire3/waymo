@@ -7,7 +7,7 @@
 | -------------------- | --------------------------------------------------------------------------------------|
 | **Veranstaltung:**   | `Robotik Projekt`                                                                     |
 | **Semester**         | `Sommersemester 2025`                                                                 |
-| **Hochschule:**      | `Technische Universität Berkakademie Freiberg`                                        |
+| **Hochschule:**      | `Technische Universität Bergakademie Freiberg`                                        |
 | **Inhalte:**         | `Exposé Vortrag`                                                                      |
 | **Link auf GitHub:** | https://github.com/Bigfire3/waymo/blob/documentation/presentation/zwischenvortrag.md  |
 | **Autoren**          | Fabian Zänker, Lucas Adler, Simon Hörtzsch @author                                    |
@@ -104,8 +104,8 @@
 
   ![Debug Canva](../Img/debug_canva.png "Aktuelles Debug Canva")
 
-  + Keyboard Handler: Möglichkeit zum manuellen Stoppen des Roboters  
-  + in separatem Terminal mit den Tasten 's' für Stop/Start und 'd' zum Togglen des Debug Canva
++ Keyboard Handler: Möglichkeit zum manuellen Stoppen des Roboters  
++ in separatem Terminal mit den Tasten 's' für Stop/Start und 'd' zum Togglen des Debug Canva
 
 ********************************************************************************
 
@@ -115,7 +115,7 @@
 ## 4. Ausblick
 
 + Spiegelung und Reflexion auf der Fahrbahn müssen noch besser behandelt werden
-+ Erweitertung um Krezungsmanöver
++ Erweiterung um Kreuzungsmanöver
 
 **Vielen Dank für Ihre Aufmerksamkeit!**
 
