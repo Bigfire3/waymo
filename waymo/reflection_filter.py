@@ -42,22 +42,22 @@ class ReflectionFilter(Node):
         self.declare_parameter('sigmaColor', 75, int_desc("sigmaColor"))
         self.declare_parameter('sigmaSpace', 75, int_desc("sigmaSpace"))
 
-        self.declare_parameter('min_contour_area', 200, int_desc("min_contour_area", max_val=1000))
-        self.declare_parameter('max_contour_area', 1000, int_desc("max_contour_area", max_val=100000))
+        self.declare_parameter('min_contour_area', 100, int_desc("min_contour_area", max_val=1000))
+        self.declare_parameter('max_contour_area', 460, int_desc("max_contour_area", max_val=100000))
 
-        self.declare_parameter('roi_top_left_w', 0.1, float_desc("ROI TL Breite")) # Schrittweite 0.001
-        self.declare_parameter('roi_top_left_h', 0.65, float_desc("ROI TL Höhe")) # Schrittweite 0.001
-        self.declare_parameter('roi_top_right_w', 0.9, float_desc("ROI TR Breite")) # Schrittweite 0.001
-        self.declare_parameter('roi_top_right_h', 0.65, float_desc("ROI TR Höhe")) # Schrittweite 0.001
+        self.declare_parameter('roi_top_left_w', 0.2, float_desc("ROI TL Breite")) # Schrittweite 0.001
+        self.declare_parameter('roi_top_left_h', 0.7, float_desc("ROI TL Höhe")) # Schrittweite 0.001
+        self.declare_parameter('roi_top_right_w', 0.8, float_desc("ROI TR Breite")) # Schrittweite 0.001
+        self.declare_parameter('roi_top_right_h', 0.7, float_desc("ROI TR Höhe")) # Schrittweite 0.001
         self.declare_parameter('roi_bottom_left_w', 0.0, float_desc("ROI BL Breite")) # Schrittweite 0.001
         self.declare_parameter('roi_bottom_left_h', 1.0, float_desc("ROI BL Höhe")) # Schrittweite 0.001
         self.declare_parameter('roi_bottom_right_w', 1.0, float_desc("ROI BR Breite")) # Schrittweite 0.001
         self.declare_parameter('roi_bottom_right_h', 1.0, float_desc("ROI BR Höhe")) # Schrittweite 0.001
 
-
-        # Beachte: min/max thickness hatten step=0.001, daher keine Rundung nötig für Standardwerte 2.5 und 5.0
         self.declare_parameter('min_thickness', 2.0, float_desc("Minimum thickness ratio", min_val=0.01, max_val=200.0, step=0.001))
+        self.declare_parameter('max_thickness', 10.0, float_desc("Maximum thickness ratio", min_val=0.01, max_val=200.0, step=0.001))
 
+        self.declare_parameter("line_count", 20)
 
         # --- QoS und Subscriber/Publisher ---
         qos_sensor_data = QoSProfile(reliability=ReliabilityPolicy.BEST_EFFORT, history=HistoryPolicy.KEEP_LAST, depth=1)
@@ -130,17 +130,28 @@ class ReflectionFilter(Node):
 
         # Extra Linien
         h, w = cropped.shape[:2]
-        cv2.line(edges, (0, h - 1), (w, h - 1), color=255, thickness=1)
-        cv2.line(edges, (w - 100, h - 450), (w - 10, h - 450), color=255, thickness=1)
-        cv2.line(edges, (w - 100, h - 200), (w - 10, h - 200), color=255, thickness=1)
+        # Horizontal
+
+        # Berechne gleichmäßige y-Positionen von unten nach oben
+        y_positions = np.linspace(h - 450, h - 25, self.get_parameter("line_count").value, dtype=int)
+
+        # Linien zeichnen
+        for y in y_positions:
+            cv2.line(edges, (1, y), (w - 1, y), color=255, thickness=1)
+
+        # Vertikal
+        cv2.line(edges, (1, 1), (1, h), color=255, thickness=1)
+        cv2.line(edges, (w-1, 1), (w-1, h), color=255, thickness=1)
 
         # --- Lücken schließen ---
         ksize = self.get_parameter("ksize").value
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (ksize, ksize))
         closed = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel)
+
         iterations = self.get_parameter("iterations").value
-        #closed = cv2.dilate(closed, kernel, iterations=iterations)
-        cv2.imshow("Edges (Closed)", closed)
+        dilate_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+        bold_closed = cv2.dilate(closed, dilate_kernel, iterations=iterations)
+        cv2.imshow("Edges (Closed)", bold_closed)
 
         # --- Konturen finden ---
         contours, _ = cv2.findContours(closed, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
@@ -153,8 +164,25 @@ class ReflectionFilter(Node):
             cv2.drawContours(filled_mask, [cnt], -1, 255, cv2.FILLED)
             # if cv2.contourArea(cnt) > self.get_parameter("min_contour_area").value and cv2.contourArea(cnt) < self.get_parameter("max_contour_area").value:  # kleinere Objekte ignorieren
             #     cv2.drawContours(filled_mask, [cnt], -1, 255, cv2.FILLED)
+        cv2.imshow("Filled", filled_mask)
 
-        cv2.imshow("Gefüllte Flächen", filled_mask)
+
+        maske_invertiert = cv2.bitwise_not(bold_closed)
+        masked = cv2.bitwise_and(filled_mask, filled_mask, mask=maske_invertiert)
+        contours, _ = cv2.findContours(masked, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+        # --- Maske vorbereiten ---
+        filled_masked = np.zeros_like(cropped, dtype=np.uint8)
+
+        # --- Alle Flächen füllen ---
+        for cnt in contours:
+            if cv2.contourArea(cnt) > self.get_parameter("min_contour_area").value and cv2.contourArea(cnt) < self.get_parameter("max_contour_area").value:  # kleinere Objekte ignorieren
+                cv2.drawContours(filled_masked, [cnt], -1, 255, cv2.FILLED)
+
+        cv2.imshow("Gefüllte Flächen", filled_masked)
+
+        filtered_frame = self.filter_lane_markings_by_thickness(filled_masked)
+        cv2.imshow("Filtered frame", filtered_frame)
 
 
         # Leeres Binärbild (gleiche Größe)
@@ -208,6 +236,22 @@ class ReflectionFilter(Node):
         warped_frame = cv2.bitwise_and(warped_frame, mask)
         
         return warped_frame
+    
+    def filter_lane_markings_by_thickness(self, frame):
+        min_thickness = self.get_parameter('min_thickness').value
+        max_thickness = self.get_parameter('max_thickness').value
+        contours, hierarchy = cv2.findContours(frame, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        filtered_mask = np.zeros_like(frame)
+
+        for contour in contours:
+            area = cv2.contourArea(contour)
+            perimeter = cv2.arcLength(contour, True)
+            if perimeter == 0 or area < 5: continue
+            thickness_ratio = area / perimeter
+            if min_thickness <= thickness_ratio <= max_thickness:
+                cv2.drawContours(filtered_mask, [contour], -1, 255, thickness=cv2.FILLED)
+        
+        return filtered_mask
 
 
 # main Funktion bleibt wie in deiner "neuen" Datei, da sie den Fehler-Fix enthielt

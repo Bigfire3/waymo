@@ -178,7 +178,8 @@ class Lane:
         image_copy = frame.copy() if frame is not None else self.orig_frame.copy()
         h, w = image_copy.shape[:2]
         font_scale = float(0.6 * w / 640); thickness = max(1, int(2 * w / 640))
-        pos_curve = (int(10 * w / 640), int(30 * h / 480)); pos_offset = (int(10 * w / 640), int(60 * h / 480))
+        pos_curve = (int(10 * w / 640), int(30 * h / 480))
+        pos_offset = (int(10 * w / 640), int(60 * h / 480))
         curve_radius_text = "Curve Radius: N/A"
         valid_curves = [c for c in [self.left_curvem, self.right_curvem] if c is not None and c != float('inf')]
         if valid_curves:
@@ -341,8 +342,8 @@ class Lane:
         if self.left_fit is not None and self.right_fit is not None:
             if self.ploty is None or len(self.ploty) != frame_sliding_window.shape[0]: self.ploty = np.linspace(0, frame_sliding_window.shape[0]-1, frame_sliding_window.shape[0])
             try:
-                self.left_fitx = self.left_fit[0]*self.ploty**2 + self.left_fit[1]*self.ploty + self.left_fit[2] + 160
-                self.right_fitx = self.right_fit[0]*self.ploty**2 + self.right_fit[1]*self.ploty + self.right_fit[2] + 160
+                self.left_fitx = self.left_fit[0]*self.ploty**2 + self.left_fit[1]*self.ploty + self.left_fit[2]
+                self.right_fitx = self.right_fit[0]*self.ploty**2 + self.right_fit[1]*self.ploty + self.right_fit[2]
             except (TypeError, IndexError): self.left_fitx=None; self.right_fitx=None; self.ploty=None; self.left_fit=None; self.right_fit=None
         else:
             self.left_fitx=None
@@ -387,12 +388,14 @@ class Lane:
 
 
     def overlay_lane_lines(self, plot=False):
-        # --- Code wie zuvor ---
         if self.left_fit is None or self.right_fit is None or self.ploty is None or self.left_fitx is None or self.right_fitx is None or self.filtered_warped_frame is None or self.inv_transformation_matrix is None:
             return self.orig_frame
-        warp_zero = np.zeros_like(self.filtered_warped_frame).astype(np.uint8); color_warp = np.dstack((warp_zero, warp_zero, warp_zero))
-        pts_left = np.array([np.transpose(np.vstack([self.left_fitx, self.ploty]))]); pts_right = np.array([np.flipud(np.transpose(np.vstack([self.right_fitx, self.ploty])))])
-        pts = np.hstack((pts_left, pts_right)); cv2.fillPoly(color_warp, np.int_([pts]), (0, 255, 0))
+        warp_zero = np.zeros_like(self.filtered_warped_frame).astype(np.uint8)
+        color_warp = np.dstack((warp_zero, warp_zero, warp_zero))
+        pts_left = np.array([np.transpose(np.vstack([self.left_fitx, self.ploty]))])
+        pts_right = np.array([np.flipud(np.transpose(np.vstack([self.right_fitx, self.ploty])))])
+        pts = np.hstack((pts_left + 160, pts_right + 160))
+        cv2.fillPoly(color_warp, np.int_([pts]), (0, 255, 0))
         try: newwarp = cv2.warpPerspective(color_warp, self.inv_transformation_matrix, (self.orig_frame.shape[1], self.orig_frame.shape[0]))
         except cv2.error as e: print(f"Fehler bei WarpPerspective im Overlay: {e}"); return self.orig_frame
         result = cv2.addWeighted(self.orig_frame, 1, newwarp, 0.3, 0)

@@ -40,7 +40,9 @@ def get_line_markings(frame, **params):
     for cnt in contours:
         cv2.drawContours(filled_mask, [cnt], -1, 255, cv2.FILLED)
 
-    return filled_mask
+    filtered_frame = filled_mask - edges
+
+    return filtered_frame
 
     # cv2.imshow("Gefüllte Flächen", filled_mask)
     # cv2.waitKey(1)
