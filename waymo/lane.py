@@ -51,7 +51,6 @@ class Lane:
         self.lane_line_markings = None
 
         # Bild nach der Perspektivtransformation
-        self.warped_frame = None
         self.filtered_warped_frame = None
         self.transformation_matrix = None
         self.inv_transformation_matrix = None
@@ -111,15 +110,13 @@ class Lane:
 
         # Berechne die X-Koordinaten der Linien am unteren Rand
         try:
-            current_right_x = self.right_fit[0] * self.y_bottom**2 + \
-                self.right_fit[1] * self.y_bottom + self.right_fit[2]
+            current_right_x = self.right_fit[0] * self.y_bottom**2 + self.right_fit[1] * self.y_bottom + self.right_fit[2]
             #if (self.left_fit[0] * self.right_fit[0]) > 0:
-            current_left_x = self.left_fit[0] * self.y_bottom**2 + \
-                self.left_fit[1] * self.y_bottom + self.left_fit[2]
+            current_left_x = self.left_fit[0] * self.y_bottom**2 + self.left_fit[1] * self.y_bottom + self.left_fit[2]
             #else:
             #    current_left_x = current_right_x - 240
 
-            self.current_center = ((current_left_x + current_right_x) / 2)
+            self.current_center = ((current_left_x + current_right_x + 320) / 2)
         except (TypeError, IndexError):
             self.current_center = None
             self.center_offset = None
@@ -321,25 +318,36 @@ class Lane:
 
         use_smoothing = False # Glättung aus
         if new_left_fit is not None:
-             if use_smoothing and self.previous_left_fit is not None: self.left_fit = 0.2 * new_left_fit + 0.8 * self.previous_left_fit
-             else: self.left_fit = new_left_fit
-             self.previous_left_fit = self.left_fit
-        elif self.previous_left_fit is not None: self.left_fit = self.previous_left_fit
-        else: self.left_fit = None
+            if use_smoothing and self.previous_left_fit is not None:
+                self.left_fit = 0.2 * new_left_fit + 0.8 * self.previous_left_fit
+            else:
+                self.left_fit = new_left_fit
+            self.previous_left_fit = self.left_fit
+        elif self.previous_left_fit is not None:
+            self.left_fit = self.previous_left_fit
+        else:
+            self.left_fit = None
         if new_right_fit is not None:
-             if use_smoothing and self.previous_right_fit is not None: self.right_fit = 0.2 * new_right_fit + 0.8 * self.previous_right_fit
-             else: self.right_fit = new_right_fit
-             self.previous_right_fit = self.right_fit
-        elif self.previous_right_fit is not None: self.right_fit = self.previous_right_fit
-        else: self.right_fit = None
+            if use_smoothing and self.previous_right_fit is not None: 
+                self.right_fit = 0.2 * new_right_fit + 0.8 * self.previous_right_fit
+            else:
+                self.right_fit = new_right_fit
+                self.previous_right_fit = self.right_fit
+        elif self.previous_right_fit is not None:
+            self.right_fit = self.previous_right_fit
+        else:
+            self.right_fit = None
 
         if self.left_fit is not None and self.right_fit is not None:
             if self.ploty is None or len(self.ploty) != frame_sliding_window.shape[0]: self.ploty = np.linspace(0, frame_sliding_window.shape[0]-1, frame_sliding_window.shape[0])
             try:
-                self.left_fitx = self.left_fit[0]*self.ploty**2 + self.left_fit[1]*self.ploty + self.left_fit[2]
-                self.right_fitx = self.right_fit[0]*self.ploty**2 + self.right_fit[1]*self.ploty + self.right_fit[2]
+                self.left_fitx = self.left_fit[0]*self.ploty**2 + self.left_fit[1]*self.ploty + self.left_fit[2] + 160
+                self.right_fitx = self.right_fit[0]*self.ploty**2 + self.right_fit[1]*self.ploty + self.right_fit[2] + 160
             except (TypeError, IndexError): self.left_fitx=None; self.right_fitx=None; self.ploty=None; self.left_fit=None; self.right_fit=None
-        else: self.left_fitx=None; self.right_fitx=None; self.ploty=None
+        else:
+            self.left_fitx=None
+            self.right_fitx=None
+            self.ploty=None
 
         if plot and out_img is not None:
             try:
@@ -353,27 +361,6 @@ class Lane:
         else: self.sliding_window_debug_img = None
 
         return self.left_fit, self.right_fit, self.sliding_window_debug_img
-
-    def get_line_markings(self, frame=None, **params):
-        # --- Code wie zuvor, verwendet block_size, c_value aus params ---
-        if frame is None: frame = self.orig_frame
-        if frame is None: return None
-        hls = cv2.cvtColor(frame, cv2.COLOR_BGR2HLS)
-        # Verwendung von Parametern aus **params (die vom Node kommen)
-        # Diese Version verwendet adaptiveThreshold und gradient/color thresholds wie im Original
-        _, sxbinary = edge.threshold(hls[:, :, 1], thresh=(120, 255)) # L channel threshold
-        sxbinary = edge.blur_gaussian(sxbinary, ksize=3)
-        sxbinary = edge.mag_thresh(sxbinary, sobel_kernel=3, thresh=(110, 255)) # Gradient magnitude
-        s_channel = hls[:, :, 2] # S channel
-        s_binary = cv2.adaptiveThreshold(s_channel, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-                                         cv2.THRESH_BINARY,
-                                         params.get('block_size', 11), # aus Node params
-                                         params.get('c_value', 200))      # aus Node params (war 200 im Ur-Original?)
-        _, r_thresh = edge.threshold(frame[:, :, 2], thresh=(120, 255)) # R channel threshold
-        rs_binary = cv2.bitwise_and(s_binary, r_thresh) # Combine S and R
-        self.lane_line_markings = cv2.bitwise_or(rs_binary, sxbinary.astype(np.uint8)) # Combine color and gradient
-        return self.lane_line_markings
-
 
     @staticmethod
     def select_lane_peaks(histogram, target_distance, min_peak_value, distance_tolerance):
@@ -419,34 +406,30 @@ class Lane:
 
 
     def perspective_transform(self, frame=None, plot=False):
-        # --- Code wie zuvor ---
-        if frame is None: frame = self.lane_line_markings
-        if frame is None or frame.ndim != 2: self.warped_frame=None; self.transformation_matrix=None; self.inv_transformation_matrix=None; return
         try:
-             self.transformation_matrix = cv2.getPerspectiveTransform(self.roi_points, self.desired_roi_points)
-             self.inv_transformation_matrix = cv2.getPerspectiveTransform(self.desired_roi_points, self.roi_points)
-        except cv2.error as e: print(f"Fehler bei getPerspectiveTransform: {e}"); self.warped_frame=None; self.transformation_matrix=None; self.inv_transformation_matrix=None; return
-        try: self.warped_frame = cv2.warpPerspective(frame, self.transformation_matrix, self.orig_image_size, flags=cv2.INTER_LINEAR)
-        except cv2.error as e: print(f"Fehler bei warpPerspective: {e}"); self.warped_frame = None; return
-        # Binarisierung nach Warp (wie im Original-Code)
-        (thresh, binary_warped) = cv2.threshold(self.warped_frame, 127, 255, cv2.THRESH_BINARY)
-        self.warped_frame = binary_warped
-        # Maske anwenden (wie im Original-Code)
-        mask = np.zeros_like(self.warped_frame, dtype=np.uint8); cv2.fillPoly(mask, [np.int32(self.desired_roi_points)], 255)
-        self.warped_frame = cv2.bitwise_and(self.warped_frame, mask)
-        if plot:
-            try:
-                warped_copy = self.warped_frame.copy(); warped_plot = cv2.polylines(warped_copy, [np.int32(self.desired_roi_points)], True, (147, 20, 255), 3)
-                cv2.imshow('Warped Image', warped_plot); cv2.waitKey(1)
-            except Exception as e: print(f"Fehler beim Anzeigen des Warped Image: {e}")
+                self.transformation_matrix = cv2.getPerspectiveTransform(self.roi_points, self.desired_roi_points)
+                self.inv_transformation_matrix = cv2.getPerspectiveTransform(self.desired_roi_points, self.roi_points)
+        except cv2.error as e: print(f"Fehler bei getPerspectiveTransform: {e}"); frame=None; self.transformation_matrix=None; self.inv_transformation_matrix=None; return
+        try:
+            h, w = frame.shape[:2]
+            warped_frame = cv2.warpPerspective(frame, self.transformation_matrix, (w, h), flags=cv2.INTER_LINEAR)
+        except cv2.error as e: print(f"Fehler bei warpPerspective: {e}"); frame = None; return
+        
+        mask = np.zeros_like(warped_frame, dtype=np.uint8)
+        cv2.fillPoly(mask, [np.int32(self.desired_roi_points)], 255)
+        warped_frame = cv2.bitwise_and(warped_frame, mask)
 
-    def filter_lane_markings_by_thickness(self, plot=False, **params):
+        return warped_frame
+
+
+    def filter_lane_markings_by_thickness(self, frame, plot=False, **params):
         # --- Code wie zuvor, verwendet min/max_thickness aus params ---
-        if self.warped_frame is None: self.filtered_warped_frame = None; return
+        if frame is None:
+            self.filtered_warped_frame = None; return
         min_thickness = params.get('min_thickness', 2.5) # Standardwert aus Original
         max_thickness = params.get('max_thickness', 5.0) # Standardwert aus Original
-        contours, hierarchy = cv2.findContours(self.warped_frame, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        filtered_mask = np.zeros_like(self.warped_frame); contours_drawn = 0
+        contours, hierarchy = cv2.findContours(frame, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        filtered_mask = np.zeros_like(frame); contours_drawn = 0
         for contour in contours:
             area = cv2.contourArea(contour); perimeter = cv2.arcLength(contour, True)
             if perimeter == 0 or area < 5: continue

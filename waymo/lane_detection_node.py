@@ -13,6 +13,7 @@ import cv2
 import numpy as np
 from cv_bridge import CvBridge, CvBridgeError # CvBridge hinzugefügt
 from . import lane
+from . import edge_detection
 
 class LaneDetectionNode(Node):
     def __init__(self):
@@ -58,6 +59,16 @@ class LaneDetectionNode(Node):
 
         self.declare_parameter('sliding_window_margin_factor', 0.05, float_desc("sliding_window_margin_factor"))
         self.declare_parameter('sliding_window_minpix', 50, float_desc("sliding_window_minpix"))
+
+        # Parameter für edge_detection
+        self.declare_parameter('threshold_1', 50, int_desc("threshold_1"))
+        self.declare_parameter('threshold_2', 200, int_desc("threshold_2"))
+
+        self.declare_parameter('ksize', 3, int_desc("ksize"))
+
+        self.declare_parameter('d_value', 5, int_desc("d_value"))
+        self.declare_parameter('sigmaColor', 75, int_desc("sigmaColor"))
+        self.declare_parameter('sigmaSpace', 75, int_desc("sigmaSpace"))
 
 
         # --- HINZUGEFÜGT: Parameter zum Steuern der Debug-Publisher ---
@@ -126,28 +137,31 @@ class LaneDetectionNode(Node):
             # --- Bild dekodieren ---
             np_arr = np.frombuffer(msg.data, np.uint8)
             frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
-            if frame is None: return
+            gray_scale_frame = cv2.imdecode(np_arr, cv2.IMREAD_GRAYSCALE)
+
+            if frame is None:
+                return
             timestamp = msg.header.stamp
 
             # --- Bildverarbeitung mit dem Lane-Objekt ---
             self.lane_obj.update_frame(frame, **current_params)
 
-            roi_img = self.lane_obj.plot_roi() # Ruft die geänderte Methode auf
+            roi_img = self.lane_obj.plot_roi()
             if current_params.get('publish_roi_image') and roi_img is not None:
                 self._publish_image(self.pub_roi, roi_img, timestamp)
 
-            # 1. Linienmarkierungen finden (Verwendet block_size, c_value etc.)
-            raw_markings = self.lane_obj.get_line_markings(**current_params)
-            if current_params.get('publish_raw_markings'):
-                self._publish_image(self.pub_raw_markings, raw_markings, timestamp)
-
-            # 2. Perspektivtransformation (Verwendet ROI-Parameter)
-            self.lane_obj.perspective_transform(frame=raw_markings, plot=False)
+            # 1. Perspektivtransformation (Verwendet ROI-Parameter)
+            warped_frame = self.lane_obj.perspective_transform(frame=gray_scale_frame, plot=False)
             if current_params.get('publish_warped_frame'):
-                self._publish_image(self.pub_warped_frame, self.lane_obj.warped_frame, timestamp)
+                self._publish_image(self.pub_warped_frame, warped_frame, timestamp)
+
+            # 2. Linienmarkierungen finden
+            line_markings_frame = edge_detection.get_line_markings(warped_frame, **current_params)
+            if current_params.get('publish_raw_markings'):
+                self._publish_image(self.pub_raw_markings, line_markings_frame, timestamp)
 
             # 3. Nach Dicke filtern (Verwendet min/max_thickness)
-            self.lane_obj.filter_lane_markings_by_thickness(plot=False, **current_params)
+            self.lane_obj.filter_lane_markings_by_thickness(line_markings_frame, plot=False, **current_params)
             if current_params.get('publish_filtered_warped'):
                  self._publish_image(self.pub_filtered_warped, self.lane_obj.filtered_warped_frame, timestamp)
 
