@@ -28,9 +28,9 @@ class GuiDebugNode(Node):
         self.debug_topics = OrderedDict([
             ('roi', '/debug/cam/roi'),
             ('lane_annotated', '/debug/cam/lane_annotated'),
-            ('raw_markings', '/debug/cam/raw_markings'),
-            ('warped', '/debug/cam/warped'),
-            ('filtered_warped', '/debug/cam/filtered_warped'),
+            ('closed_edges', '/debug/cam/closed_edges'),
+            ('filled_areas', '/debug/cam/filled_areas'),
+            ('thickness_filtered', '/debug/cam/thickness_filtered'),
             ('sliding_window', '/debug/cam/sliding_window'),
             ('traffic_light_mask', '/debug/cam/traffic_mask'),
             ('traffic_light_overlay', '/debug/cam/traffic_overlay'),
