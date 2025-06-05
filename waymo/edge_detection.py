@@ -29,10 +29,10 @@ class EdgeDetection():
         self.h, self.w = edges.shape[:2]
 
         # --- Horizontale Linien hinzufügen ---
-        cv2.line(edges, (10, self.h - 475), (self.w - 10, self.h - 475), color=255, thickness=1)
-        cv2.line(edges, (10, self.h - 375), (self.w - 10, self.h - 375), color=255, thickness=1)
-        cv2.line(edges, (10, self.h - 250), (self.w - 10, self.h - 250), color=255, thickness=1)
-        cv2.line(edges, (10, self.h - 125), (self.w - 10, self.h - 125), color=255, thickness=1)
+        cv2.line(edges, (1, self.h - 475), (self.w - 1, self.h - 475), color=255, thickness=1)
+        cv2.line(edges, (1, self.h - 375), (self.w - 1, self.h - 375), color=255, thickness=1)
+        cv2.line(edges, (1, self.h - 250), (self.w - 1, self.h - 250), color=255, thickness=1)
+        cv2.line(edges, (1, self.h - 125), (self.w - 1, self.h - 125), color=255, thickness=1)
         cv2.line(edges, (1, self.h - 1), (100, self.h - 1), color=255, thickness=1)
         cv2.line(edges, (self.w - 100, self.h - 1), (self.w - 1, self.h - 1), color=255, thickness=1)
 
@@ -40,7 +40,7 @@ class EdgeDetection():
         # cv2.line(edges, (1, 1), (1, self.h), color=255, thickness=1)
         # cv2.line(edges, (self.w-1, 1), (self.w-1, self.h), color=255, thickness=1)
 
-        cv2.imshow("Edges", edges)
+        # cv2.imshow("Edges", edges)
 
         # --- Lücken schließen ---
         ksize = params.get("ksize")
@@ -50,7 +50,7 @@ class EdgeDetection():
         iterations = params.get("iterations")
         dilate_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
         self.bold_closed = cv2.dilate(self.closed, dilate_kernel, iterations=iterations)
-        cv2.imshow("Edges (Closed)", self.bold_closed)
+        # cv2.imshow("Edges (Closed)", self.bold_closed)
 
         return self.bold_closed
 
@@ -78,7 +78,7 @@ class EdgeDetection():
             if cv2.contourArea(cnt) > params.get("min_contour_area") and cv2.contourArea(cnt) < params.get("max_contour_area"):  # kleinere Objekte ignorieren
                 cv2.drawContours(filled_masked, [cnt], -1, 255, cv2.FILLED)
 
-        cv2.imshow("Gefüllte Flächen", filled_masked)
-        cv2.waitKey(1)
+        # cv2.imshow("Gefüllte Flächen", filled_masked)
+        # cv2.waitKey(1)
 
         return filled_masked

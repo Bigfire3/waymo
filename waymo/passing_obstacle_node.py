@@ -17,6 +17,7 @@ LINEAR_SPEED = 0.15
 ANGULAR_SPEED = 0.8
 SIDEWAYS_DISTANCE = 0.28
 TURN_ANGLE_90_DEG = math.pi / 2
+RECOMMENDED_SPEED_TOPIC = '/robot/recommended_speed'
 
 # --- SCAN-WINKEL (POSITIV - wie in deinem Code) ---
 SIDE_SCAN_ANGLE_MIN_DEG = 70.0 # Grad
@@ -45,6 +46,8 @@ class PassingObstacleNode(rclpy.node.Node):
     def __init__(self):
         super().__init__('passing_obstacle_node')
 
+        self.declare_parameter('fallback_passing_speed', 0.1)
+
         self.maneuver_state = ManeuverState.IDLE
         self.current_yaw = 0.0
         self.start_yaw = 0.0
@@ -55,6 +58,8 @@ class PassingObstacleNode(rclpy.node.Node):
         self.maneuver_active = False
         # self.last_log_time = 0.0 # Nicht mehr gebraucht
         self.current_center_offset = 0.0
+
+        self.recommended_speed = self.get_parameter('fallback_passing_speed').value
 
         # QoS Profile (Gemischt)
         qos_sensor = QoSProfile(
@@ -72,6 +77,8 @@ class PassingObstacleNode(rclpy.node.Node):
         self.state_subscriber = self.create_subscription(String, '/robot/state', self.robot_state_callback, qos_reliable)
         self.offset_subscription = self.create_subscription(Float64,'/lane/center_offset',self.lane_offset_callback, qos_sensor)
 
+        self.recommended_speed_subscriber = self.create_subscription(Float64, RECOMMENDED_SPEED_TOPIC, self.recommended_speed_callback, qos_reliable)
+
         # Publishers
         self.cmd_vel_publisher = self.create_publisher(Twist, '/cmd_vel', qos_reliable)
         self.passed_publisher = self.create_publisher(Bool, '/obstacle/passed', qos_reliable)
@@ -81,6 +88,9 @@ class PassingObstacleNode(rclpy.node.Node):
 
         # Initiale Logs entfernt
 
+    def recommended_speed_callback(self, msg: Float64):
+        self.recommended_speed = msg.data
+    
     def odom_callback(self, msg: Odometry):
         orientation_q = msg.pose.pose.orientation
         orientation_list = [orientation_q.x, orientation_q.y, orientation_q.z, orientation_q.w]
@@ -160,7 +170,7 @@ class PassingObstacleNode(rclpy.node.Node):
         elif self.maneuver_state == ManeuverState.CHECKING_SIDE:
             angular_z = self.current_center_offset
             angular_z = np.clip(angular_z, -MAX_ANGULAR_Z_PASSING, MAX_ANGULAR_Z_PASSING)
-            self.move_robot(LINEAR_SPEED, angular_z) # Lane Following
+            self.move_robot(self.recommended_speed, angular_z) # Lane Following
             if self.side_is_clear:
                 self.stop_robot(); self.maneuver_state = ManeuverState.TURNING_RIGHT_2
                 self.start_yaw = self.current_yaw; self.target_yaw = self.normalize_angle(self.start_yaw - TURN_ANGLE_90_DEG)

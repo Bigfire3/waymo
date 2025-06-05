@@ -77,8 +77,8 @@ class GuiDebugNode(Node):
         canvas_update_period = 0.1
         self.canvas_timer = self.create_timer(canvas_update_period, self.update_canvas)
 
-        self.get_logger().info(f"GuiDebugNode gestartet. Drücke 'd' im Keyboard Handler, um das Debug-Canvas anzuzeigen.")
-        self.get_logger().info(f"Skalierungsfaktor: {self.get_parameter('canvas_scale_factor').value}")
+        # self.get_logger().info(f"GuiDebugNode gestartet. Drücke 'd' im Keyboard Handler, um das Debug-Canvas anzuzeigen.")
+        # self.get_logger().info(f"Skalierungsfaktor: {self.get_parameter('canvas_scale_factor').value}")
         self.get_logger().info(f"Robot Status: {self.current_robot_state}")
 
 
