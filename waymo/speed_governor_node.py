@@ -26,7 +26,7 @@ class SpeedGovernorNode(Node):
         # Faktor zur Reduzierung der Geschwindigkeit basierend auf dem Offset.
         # Ein größerer Faktor führt zu stärkerer Reduzierung bei gleichem Offset.
         # Dieser Wert muss wahrscheinlich experimentell angepasst werden.
-        self.declare_parameter('speed_reduction_factor', 0.35,
+        self.declare_parameter('speed_reduction_factor', 0.5,
                                float_desc("Factor to reduce speed based on lane offset", 0.0, 2.0, 0.001))
         self.declare_parameter('min_speed', 0.05,
                                float_desc("Minimum allowed speed during movement (m/s)", 0.0, 0.1, 0.005))

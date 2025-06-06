@@ -37,13 +37,16 @@ class LaneDetectionNode(Node):
         self.declare_parameter('block_size', 7, int_desc("Auto-S: block_size"))
         self.declare_parameter('c_value', 200, int_desc("Auto-S: c_value"))
         self.declare_parameter('center_factor', 0.015, float_desc("Center_Calc: factor")) # Schrittweite 0.001
+        self.declare_parameter('smoothing_on_off', False, bool_desc("Smoothing on/off"))
+        self.declare_parameter('weight_previous_fit', 0.75, float_desc("Weight previous fit", min_val=0.0, max_val=1.0, step=0.01))
+        self.declare_parameter('weight_current_fit', 0.25, float_desc("Weight current fit", min_val=0.0, max_val=1.0, step=0.01))
         # Beachte: min/max thickness hatten step=0.001, daher keine Rundung nötig für Standardwerte 2.5 und 5.0
         self.declare_parameter('min_thickness', 1.5, float_desc("Minimum thickness ratio", min_val=0.01, max_val=200.0, step=0.001))
         self.declare_parameter('max_thickness', 5.0, float_desc("Maximum thickness ratio", min_val=0.01, max_val=200.0, step=0.001))
         # ROI Parameter
-        self.declare_parameter('roi_top_left_w', 0.1, float_desc("ROI TL Breite")) # Schrittweite 0.001
+        self.declare_parameter('roi_top_left_w', 0.0, float_desc("ROI TL Breite")) # Schrittweite 0.001
         self.declare_parameter('roi_top_left_h', 0.7, float_desc("ROI TL Höhe")) # Schrittweite 0.001
-        self.declare_parameter('roi_top_right_w', 0.9, float_desc("ROI TR Breite")) # Schrittweite 0.001
+        self.declare_parameter('roi_top_right_w', 1.0, float_desc("ROI TR Breite")) # Schrittweite 0.001
         self.declare_parameter('roi_top_right_h', 0.7, float_desc("ROI TR Höhe")) # Schrittweite 0.001
         self.declare_parameter('roi_bottom_left_w', 0.0, float_desc("ROI BL Breite")) # Schrittweite 0.001
         self.declare_parameter('roi_bottom_left_h', 1.0, float_desc("ROI BL Höhe")) # Schrittweite 0.001
@@ -61,7 +64,7 @@ class LaneDetectionNode(Node):
         self.declare_parameter('sliding_window_minpix', 50, float_desc("sliding_window_minpix"))
 
         # Parameter für edge_detection
-        self.declare_parameter('threshold_1', 100, int_desc("threshold_1"))
+        self.declare_parameter('threshold_1', 50, int_desc("threshold_1"))
         self.declare_parameter('threshold_2', 200, int_desc("threshold_2"))
 
         self.declare_parameter('ksize', 3, int_desc("ksize"))

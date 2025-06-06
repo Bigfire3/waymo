@@ -16,7 +16,7 @@ from scipy.spatial.transform import Rotation as R
 LINEAR_SPEED = 0.15
 ANGULAR_SPEED = 0.8
 SIDEWAYS_DISTANCE = 0.28
-TURN_ANGLE_90_DEG = math.pi / 2
+TURN_ANGLE_90_DEG = math.radians(90.0) # 90 Grad in Bogenmaß
 RECOMMENDED_SPEED_TOPIC = '/robot/recommended_speed'
 
 # --- SCAN-WINKEL (POSITIV - wie in deinem Code) ---
@@ -26,12 +26,13 @@ SIDE_SCAN_ANGLE_MIN = math.radians(SIDE_SCAN_ANGLE_MIN_DEG)
 SIDE_SCAN_ANGLE_MAX = math.radians(SIDE_SCAN_ANGLE_MAX_DEG)
 
 # --- Abstandsschwellenwert (wie in deinem Code) ---
-SIDE_SCAN_CLEAR_DISTANCE = 0.40 # Meter
+SIDE_SCAN_CLEAR_DISTANCE = 0.4 # Meter
 
 # --- Wait Duration (wie in deinem Code) ---
 WAIT_DURATION_BEFORE_CHECK = 0.0 # Sekunden
+DRIVE_DURATION_BEFORE_SIDE_CHECK = 0.5 # Sekunden
 
-GOAL_TOLERANCE_ANGLE = 0.05
+GOAL_TOLERANCE_ANGLE = math.radians(2.0) # 0.05 rad = 2.86 Grad
 MOVE_DURATION_SIDEWAYS = SIDEWAYS_DISTANCE / LINEAR_SPEED
 LOG_THROTTLE_DURATION = 1.0 # Wird nicht mehr gebraucht ohne Logs
 MAX_ANGULAR_Z_PASSING = 0.8
@@ -170,10 +171,13 @@ class PassingObstacleNode(rclpy.node.Node):
         elif self.maneuver_state == ManeuverState.CHECKING_SIDE:
             angular_z = self.current_center_offset
             angular_z = np.clip(angular_z, -MAX_ANGULAR_Z_PASSING, MAX_ANGULAR_Z_PASSING)
-            self.move_robot(self.recommended_speed, angular_z) # Lane Following
-            if self.side_is_clear:
-                self.stop_robot(); self.maneuver_state = ManeuverState.TURNING_RIGHT_2
-                self.start_yaw = self.current_yaw; self.target_yaw = self.normalize_angle(self.start_yaw - TURN_ANGLE_90_DEG)
+            if current_time - self.wait_start_time < DRIVE_DURATION_BEFORE_SIDE_CHECK:
+                self.move_robot(self.recommended_speed, angular_z)
+            else:
+                self.move_robot(self.recommended_speed, angular_z)
+                if self.side_is_clear:
+                    self.stop_robot(); self.maneuver_state = ManeuverState.TURNING_RIGHT_2
+                    self.start_yaw = self.current_yaw; self.target_yaw = self.normalize_angle(self.start_yaw - TURN_ANGLE_90_DEG)
         elif self.maneuver_state == ManeuverState.TURNING_RIGHT_2:
              if self.turn_to_target(self.target_yaw, -ANGULAR_SPEED): self.maneuver_state = ManeuverState.MOVING_SIDEWAYS_2; self.start_time = current_time
         elif self.maneuver_state == ManeuverState.MOVING_SIDEWAYS_2:

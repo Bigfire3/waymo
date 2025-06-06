@@ -317,10 +317,12 @@ class Lane:
             try: new_right_fit = np.polyfit(righty, rightx, 2)
             except (np.linalg.LinAlgError, TypeError): new_right_fit = None
 
-        use_smoothing = False # Glättung aus
+        use_smoothing = params.get('smoothing_on_off', False) # Glättung an/aus
+        weight_previous_fit = params.get('weight_previous_fit', 0.75)
+        weight_current_fit = params.get('weight_current_fit', 0.25)
         if new_left_fit is not None:
             if use_smoothing and self.previous_left_fit is not None:
-                self.left_fit = 0.2 * new_left_fit + 0.8 * self.previous_left_fit
+                self.left_fit = weight_current_fit * new_left_fit + weight_previous_fit * self.previous_left_fit
             else:
                 self.left_fit = new_left_fit
             self.previous_left_fit = self.left_fit
@@ -330,7 +332,7 @@ class Lane:
             self.left_fit = None
         if new_right_fit is not None:
             if use_smoothing and self.previous_right_fit is not None: 
-                self.right_fit = 0.2 * new_right_fit + 0.8 * self.previous_right_fit
+                self.right_fit = weight_current_fit * new_right_fit + weight_previous_fit * self.previous_right_fit
             else:
                 self.right_fit = new_right_fit
                 self.previous_right_fit = self.right_fit
