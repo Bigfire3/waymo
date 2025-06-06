@@ -21,9 +21,9 @@ class SignDetectionNode(Node):
             integer_range=[IntegerRange(from_value=min_val, to_value=max_val, step=step)])
         
         self.declare_parameter('publish_binary_sign', True, bool_desc("Publish binary frame with colored detection boxes as cv2 image"))
-        self.declare_parameter('binary_threshold', 130, int_desc("Threshold for binary image"))
+        self.declare_parameter('binary_threshold', 100, int_desc("Threshold for binary image"))
         # NEU: Parameter für die Erkennungsschwelle des Template Matchings
-        self.declare_parameter('detection_confidence_threshold', 0.75, 
+        self.declare_parameter('detection_confidence_threshold', 0.7, 
                                ParameterDescriptor(type=ParameterType.PARAMETER_DOUBLE, 
                                                  description="Confidence threshold for template matching (0.0 to 1.0)",
                                                  floating_point_range=[FloatingPointRange(from_value=0.0, to_value=1.0, step=0.01)]))
@@ -215,7 +215,7 @@ class SignDetectionNode(Node):
                         sign_msg_data = "straight_sign_detected"
                     elif template_name == 'left_sign':
                         sign_msg_data = "left_sign_detected"
-                    elif template_name in ('right_sign_0', 'right_sign_1', 'right_sign_old'): # Falls es mehrere rechte Schilder gibt
+                    elif template_name in ('right_sign_0', 'right_sign_1'):
                         sign_msg_data = "right_sign_detected"
                     
                     if sign_msg_data:

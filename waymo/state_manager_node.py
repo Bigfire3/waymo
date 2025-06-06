@@ -148,17 +148,17 @@ class StateMachine(rclpy.node.Node):
 
         # Exklusives Setzen für Kreuzungsschilder
         if _straight_detected:
-            self.get_logger().info("Visuelles Geradeaus-Schild Signal empfangen.")
+            # self.get_logger().info("Visuelles Geradeaus-Schild Signal empfangen.")
             self.straight_sign_visually_detected = True
             self.right_sign_visually_detected = False
             self.left_sign_visually_detected = False
         elif _right_detected:
-            self.get_logger().info("Visuelles Rechts-Schild Signal empfangen.")
+            # self.get_logger().info("Visuelles Rechts-Schild Signal empfangen.")
             self.right_sign_visually_detected = True
             self.straight_sign_visually_detected = False
             self.left_sign_visually_detected = False
         elif _left_detected:
-            self.get_logger().info("Visuelles Links-Schild Signal empfangen.")
+            # self.get_logger().info("Visuelles Links-Schild Signal empfangen.")
             self.left_sign_visually_detected = True
             self.straight_sign_visually_detected = False
             self.right_sign_visually_detected = False
@@ -177,11 +177,11 @@ class StateMachine(rclpy.node.Node):
         # msg.data ist True, wenn Manöver erfolgreich, False bei Abbruch durch intersection_node
         if msg.data:
             self.intersection_maneuver_finished = True
-            self.get_logger().info("Intersection_finished_callback: Manöver erfolgreich beendet (True).")
+            # self.get_logger().info("Intersection_finished_callback: Manöver erfolgreich beendet (True).")
         else:
             # Manöver fehlgeschlagen oder von intersection_node abgebrochen
             self.intersection_maneuver_finished = True # Trotzdem als "finished" markieren, um aus dem Zustand rauszukommen
-            self.get_logger().warn("Intersection_finished_callback: Manöver NICHT erfolgreich (False erhalten). Setze trotzdem finished.")
+            # self.get_logger().warn("Intersection_finished_callback: Manöver NICHT erfolgreich (False erhalten). Setze trotzdem finished.")
             # Die Flags straight/left/right_sign_visually_detected werden in der control_loop (l) zurückgesetzt.
 
     def control_loop_callback(self):
@@ -242,7 +242,7 @@ class StateMachine(rclpy.node.Node):
                   current_internal_state == STATE_INTERSECTION_TURNING_RIGHT or \
                   current_internal_state == STATE_INTERSECTION_TURNING_LEFT) and \
                  self.intersection_maneuver_finished:
-                self.get_logger().info(f"Zustand {current_internal_state} BEENDET, intersection_maneuver_finished={self.intersection_maneuver_finished}. Gehe zu FOLLOW_LANE.")
+                # self.get_logger().info(f"Zustand {current_internal_state} BEENDET, intersection_maneuver_finished={self.intersection_maneuver_finished}. Gehe zu FOLLOW_LANE.")
                 next_state = STATE_FOLLOW_LANE
                 self.intersection_maneuver_finished = False 
                 self.straight_sign_visually_detected = False 
@@ -255,7 +255,7 @@ class StateMachine(rclpy.node.Node):
                         STATE_PASSING_OBSTACLE, STATE_PARKING, STATE_STOPPED_AT_TRAFFIC_LIGHT,
                         STATE_INTERSECTION_DRIVING_STRAIGHT, STATE_INTERSECTION_TURNING_LEFT, STATE_INTERSECTION_TURNING_RIGHT
                     ]:
-                self.get_logger().info(f"Bedingung (i) WAHR: straight_sign={self.straight_sign_visually_detected}. Wechsel zu INTERSEC_DRIVING_STRAIGHT.")
+                # self.get_logger().info(f"Bedingung (i) WAHR: straight_sign={self.straight_sign_visually_detected}. Wechsel zu INTERSEC_DRIVING_STRAIGHT.")
                 next_state = STATE_INTERSECTION_DRIVING_STRAIGHT
                 self.intersection_maneuver_finished = False 
                 self.straight_sign_visually_detected = False 
@@ -266,7 +266,7 @@ class StateMachine(rclpy.node.Node):
                         STATE_PASSING_OBSTACLE, STATE_PARKING, STATE_STOPPED_AT_TRAFFIC_LIGHT,
                         STATE_INTERSECTION_DRIVING_STRAIGHT, STATE_INTERSECTION_TURNING_LEFT, STATE_INTERSECTION_TURNING_RIGHT
                     ]:
-                self.get_logger().info(f"Bedingung (j) WAHR: right_sign={self.right_sign_visually_detected}. Wechsel zu INTERSEC_TURNING_RIGHT.")
+                # self.get_logger().info(f"Bedingung (j) WAHR: right_sign={self.right_sign_visually_detected}. Wechsel zu INTERSEC_TURNING_RIGHT.")
                 next_state = STATE_INTERSECTION_TURNING_RIGHT
                 self.intersection_maneuver_finished = False 
                 self.right_sign_visually_detected = False 
@@ -277,7 +277,7 @@ class StateMachine(rclpy.node.Node):
                         STATE_PASSING_OBSTACLE, STATE_PARKING, STATE_STOPPED_AT_TRAFFIC_LIGHT,
                         STATE_INTERSECTION_DRIVING_STRAIGHT, STATE_INTERSECTION_TURNING_LEFT, STATE_INTERSECTION_TURNING_RIGHT
                     ]:
-                self.get_logger().info(f"Bedingung (k) WAHR: left_sign={self.left_sign_visually_detected}. Wechsel zu INTERSEC_TURNING_LEFT.")
+                # self.get_logger().info(f"Bedingung (k) WAHR: left_sign={self.left_sign_visually_detected}. Wechsel zu INTERSEC_TURNING_LEFT.")
                 next_state = STATE_INTERSECTION_TURNING_LEFT
                 self.intersection_maneuver_finished = False 
                 self.left_sign_visually_detected = False 
@@ -326,7 +326,7 @@ class StateMachine(rclpy.node.Node):
 
     def change_state(self, new_state):
         if self.state != new_state:
-            self.get_logger().info(f"Zustandswechsel: {self.state} -> {new_state}")
+            # self.get_logger().info(f"Zustandswechsel: {self.state} -> {new_state}")
             self.state = new_state
             if self.state in [STATE_STOPPED_AT_OBSTACLE, STATE_STOPPED_AT_TRAFFIC_LIGHT]:
                  self.send_cmd_vel(0.0, 0.0)

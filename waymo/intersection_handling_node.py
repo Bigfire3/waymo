@@ -23,7 +23,7 @@ DEFAULT_STRAIGHT_SPEED = 0.125
 DEFAULT_TURN_FORWARD_SPEED = 0.125
 DEFAULT_TURN_ANGULAR_SPEED_RIGHT = 0.45
 DEFAULT_TURN_ANGULAR_SPEED_LEFT = 0.275
-DEFAULT_STRAIGHT_DISTANCE = 0.70
+DEFAULT_STRAIGHT_DISTANCE = 0.80
 DEFAULT_POST_TURN_STRAIGHT_DISTANCE = 0.1
 DEFAULT_SIDE_SIGN_SCAN_TIMEOUT = 10.0
 DEFAULT_WAIT_AT_REFERENCE_DURATION = 0.0
@@ -96,7 +96,7 @@ class IntersectionHandlingNode(Node):
         self.intersection_finished_publisher = self.create_publisher(Bool, '/intersection/finished', qos_reliable)
         self.control_timer_period = 0.005 # 200 Hz
         self.control_timer = self.create_timer(self.control_timer_period, self.run_intersection_maneuver)
-        self.get_logger().info(f"{NODE_NAME} initialisiert.")
+        # self.get_logger().info(f"{NODE_NAME} initialisiert.")
 
     def robot_state_manager_callback(self, msg: String):
         new_state_from_manager = msg.data
@@ -107,7 +107,7 @@ class IntersectionHandlingNode(Node):
         if is_intersection_state_now:
             if not self.maneuver_active_by_statemgr:
                 # SM will ein Manöver starten, und wir waren bisher nicht aktiv (oder dachten es zumindest)
-                self.get_logger().info(f"IH-Node: Manöver START-Signal von SM (State: {new_state_from_manager}). IH-Phase: {self.current_phase.name}")
+                # self.get_logger().info(f"IH-Node: Manöver START-Signal von SM (State: {new_state_from_manager}). IH-Phase: {self.current_phase.name}")
                 self.maneuver_active_by_statemgr = True
                 self.active_intersection_state = new_state_from_manager
                 if self.current_phase == IntersectionPhase.IDLE:
@@ -115,7 +115,7 @@ class IntersectionHandlingNode(Node):
                 else:
                     # SM will starten, aber wir sind nicht IDLE. Das ist unerwartet.
                     # Wir sollten das aktuelle Manöver sauber abbrechen und dann neu starten.
-                    self.get_logger().warn(f"IH-Node: SM will Intersection starten ({new_state_from_manager}), aber IH-Node war nicht IDLE (Phase: {self.current_phase.name}). Breche ab und starte Manöver neu.")
+                    # self.get_logger().warn(f"IH-Node: SM will Intersection starten ({new_state_from_manager}), aber IH-Node war nicht IDLE (Phase: {self.current_phase.name}). Breche ab und starte Manöver neu.")
                     # Setze interne Zustände zurück, als ob ein neues Manöver beginnt
                     self.side_sign_detected_by_laser = False # Wichtig für den Neustart der Schildsuche
                     self.change_phase(IntersectionPhase.DRIVING_TO_SIDE_SIGN_REFERENCE)
@@ -125,7 +125,7 @@ class IntersectionHandlingNode(Node):
             elif self.maneuver_active_by_statemgr and self.active_intersection_state != new_state_from_manager:
                 # SM hat den Typ des Intersection-Manövers geändert, während wir aktiv waren.
                 # Das ist ein komplexer Fall. Fürs Erste: Altes Manöver abbrechen und neues starten.
-                self.get_logger().warn(f"IH-Node: SM hat Intersection-Typ geändert von {self.active_intersection_state} zu {new_state_from_manager} während aktiv. Starte neu.")
+                # self.get_logger().warn(f"IH-Node: SM hat Intersection-Typ geändert von {self.active_intersection_state} zu {new_state_from_manager} während aktiv. Starte neu.")
                 self.active_intersection_state = new_state_from_manager
                 self.side_sign_detected_by_laser = False
                 self.change_phase(IntersectionPhase.DRIVING_TO_SIDE_SIGN_REFERENCE)
@@ -133,7 +133,7 @@ class IntersectionHandlingNode(Node):
         elif not is_intersection_state_now: # SM ist NICHT mehr in einem Intersection State
             if self.maneuver_active_by_statemgr:
                 # SM hat das Manöver beendet/verlassen, während wir noch dachten, wir wären aktiv.
-                self.get_logger().info(f"IH-Node: Externer Abbruch durch SM (neuer SM-State: {new_state_from_manager}). Aktuelle IH-Phase: {self.current_phase.name}")
+                # self.get_logger().info(f"IH-Node: Externer Abbruch durch SM (neuer SM-State: {new_state_from_manager}). Aktuelle IH-Phase: {self.current_phase.name}")
                 self.maneuver_active_by_statemgr = False # Wichtig: SOFORT als nicht mehr aktiv markieren
                 if self.current_phase != IntersectionPhase.IDLE:
                     self.change_phase(IntersectionPhase.IDLE) 
@@ -159,7 +159,7 @@ class IntersectionHandlingNode(Node):
         target_angle_max_rad = math.radians(angle_max_param_deg)
         obstacle_detected = self._check_laser_zone(msg, target_angle_min_rad, target_angle_max_rad, detection_dist_param)
         if obstacle_detected:
-            self.get_logger().info("IH-Node: Seitenschild für Kreuzungsreferenz per Laser erkannt.")
+            # self.get_logger().info("IH-Node: Seitenschild für Kreuzungsreferenz per Laser erkannt.")
             self.side_sign_detected_by_laser = True
             self.stop_robot()
             self.change_phase(IntersectionPhase.WAITING_AT_REFERENCE_POINT)
@@ -195,8 +195,8 @@ class IntersectionHandlingNode(Node):
         if self.current_phase == new_phase and self.current_phase == IntersectionPhase.IDLE: # Verhindere Log-Spam für IDLE->IDLE
             log_this_change = False 
 
-        if log_this_change:
-            self.get_logger().info(f"IH-Node: Phasenwechsel: {self.current_phase.name} -> {new_phase.name}")
+        # if log_this_change:
+            # self.get_logger().info(f"IH-Node: Phasenwechsel: {self.current_phase.name} -> {new_phase.name}")
         
         self.current_phase = new_phase
         self.phase_start_time = self.get_clock().now().nanoseconds / 1e9
@@ -226,8 +226,8 @@ class IntersectionHandlingNode(Node):
         
         elif new_phase == IntersectionPhase.ABORTING:
             self.stop_robot() # Sicherstellen, dass der Roboter stoppt
-            if log_this_change: # Nur loggen, wenn es ein echter Phasenwechsel ist
-                 self.get_logger().warn("IH-Node: Manöver ABGEBROCHEN (z.B. Timeout). Sende False.")
+            # if log_this_change: # Nur loggen, wenn es ein echter Phasenwechsel ist
+                #  self.get_logger().warn("IH-Node: Manöver ABGEBROCHEN (z.B. Timeout). Sende False.")
             finished_msg = Bool(); finished_msg.data = False
             self.intersection_finished_publisher.publish(finished_msg)
             # maneuver_active_by_statemgr wird hier *nicht* sofort false, 
@@ -237,8 +237,8 @@ class IntersectionHandlingNode(Node):
         
         elif new_phase == IntersectionPhase.INTERSECTION_FINISHED:
             self.stop_robot() # Sicherstellen, dass der Roboter stoppt
-            if log_this_change:
-                self.get_logger().info("IH-Node: Manöver ERFOLGREICH BEENDET. Sende True.")
+            # if log_this_change:
+                # self.get_logger().info("IH-Node: Manöver ERFOLGREICH BEENDET. Sende True.")
             finished_msg = Bool(); finished_msg.data = True
             self.intersection_finished_publisher.publish(finished_msg)
             self.change_phase(IntersectionPhase.IDLE)
@@ -261,8 +261,8 @@ class IntersectionHandlingNode(Node):
         # Sicherheitsnetz: Wenn aktiv, aber Phase ist IDLE, stimmt was nicht.
         # Normalerweise sollte der robot_state_manager_callback von IDLE in eine Arbeitsphase wechseln.
         if self.current_phase == IntersectionPhase.IDLE and self.maneuver_active_by_statemgr:
-            self.get_logger().warn(f"IH-Node: run_maneuver - Aktiv vom SM, aber Phase ist IDLE. "
-                                   f"Warte auf korrekten Phasenwechsel durch SM-Callback für State '{self.active_intersection_state}'.")
+            # self.get_logger().warn(f"IH-Node: run_maneuver - Aktiv vom SM, aber Phase ist IDLE. "
+                                #    f"Warte auf korrekten Phasenwechsel durch SM-Callback für State '{self.active_intersection_state}'.")
             # Hier nicht automatisch starten, um Konflikte mit dem Callback zu vermeiden.
             # Der Callback ist dafür zuständig, von IDLE in DRIVING_TO_SIDE_SIGN_REFERENCE zu wechseln.
             return
@@ -275,7 +275,7 @@ class IntersectionHandlingNode(Node):
             # (scan_callback kümmert sich um den Wechsel bei Schilderkennung)
             scan_timeout = self.get_parameter('side_sign_scan_timeout').value
             if elapsed_phase_time > scan_timeout:
-                self.get_logger().warn(f"Timeout ({scan_timeout}s) beim Suchen des Seitenschilds.")
+                # self.get_logger().warn(f"Timeout ({scan_timeout}s) beim Suchen des Seitenschilds.")
                 self.change_phase(IntersectionPhase.ABORTING)
                 return
             speed = self.get_parameter('initial_drive_speed').value
@@ -292,7 +292,7 @@ class IntersectionHandlingNode(Node):
                 elif self.active_intersection_state == STATE_INTERSECTION_TURNING_RIGHT:
                     self.change_phase(IntersectionPhase.EXECUTING_RIGHT_TURN_MANEUVER_TURN)
                 else:
-                    self.get_logger().error(f"Ungültiger active_intersection_state: {self.active_intersection_state} in WAITING_AT_REFERENCE_POINT. Gehe zu ABORTING.")
+                    # self.get_logger().error(f"Ungültiger active_intersection_state: {self.active_intersection_state} in WAITING_AT_REFERENCE_POINT. Gehe zu ABORTING.")
                     self.change_phase(IntersectionPhase.ABORTING)
         
         elif self.current_phase == IntersectionPhase.EXECUTING_STRAIGHT_MANEUVER:
@@ -368,9 +368,9 @@ class IntersectionHandlingNode(Node):
 
     def destroy_node(self): # Unverändert zur letzten Version
         # self.get_logger().info(f"Shutting down {NODE_NAME}.")
-        if self.maneuver_active_by_statemgr or self.current_phase != IntersectionPhase.IDLE : 
-             self.get_logger().info(f"Stopping robot in destroy_node as current phase is {self.current_phase.name} and active_flag is {self.maneuver_active_by_statemgr}")
-             self.stop_robot()
+        # if self.maneuver_active_by_statemgr or self.current_phase != IntersectionPhase.IDLE : 
+            #  self.get_logger().info(f"Stopping robot in destroy_node as current phase is {self.current_phase.name} and active_flag is {self.maneuver_active_by_statemgr}")
+            #  self.stop_robot()
         super().destroy_node()
 
 STATE_INTERSECTION_DRIVING_STRAIGHT = 'INTERSEC_DRIVING_STRAIGHT'
