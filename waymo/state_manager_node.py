@@ -30,7 +30,7 @@ class StateMachine(rclpy.node.Node):
 
     def __init__(self):
         super().__init__('state_manager_node')
-        self.declare_parameter('drivingspeed', 0.125)  # Standard-Fahrgeschwindigkeit in m/s
+        self.declare_parameter('fallback_drivingspeed', 0.1)  # Fallback-Geschwindigkeit in m/s
 
         # Interne Variablen
         self.center_offset = 0.0
@@ -49,6 +49,12 @@ class StateMachine(rclpy.node.Node):
         self.left_sign_visually_detected = False
         self.intersection_maneuver_finished = False
 
+        self.parking_sign_visually_detected = False # Um zu wissen, dass das Schild mal gesehen wurde
+        self.parking_maneuver_finished = False # Flag, um den Abschluss des Parkens zu erkennen
+
+        self.recommended_speed = self.get_parameter('fallback_drivingspeed').value # Initialwert
+
+        # QoS Profile
         qos_sensor = QoSProfile(reliability=ReliabilityPolicy.BEST_EFFORT, history=HistoryPolicy.KEEP_LAST, depth=1)
         qos_reliable = QoSProfile(reliability=ReliabilityPolicy.RELIABLE, history=HistoryPolicy.KEEP_LAST, depth=1)
 
@@ -61,6 +67,8 @@ class StateMachine(rclpy.node.Node):
         self.parking_finished_subscription = self.create_subscription(Bool, '/parking/finished', self.parking_finished_callback, qos_reliable)
         self.intersection_finished_sub = self.create_subscription(Bool, '/intersection/finished', self.intersection_finished_callback, qos_reliable) # Name war vorher doppelt
 
+        self.recommended_speed_subscription = self.create_subscription(Float64, '/robot/recommended_speed', self.recommended_speed_callback, qos_reliable)
+
         self.state_publisher_ = self.create_publisher(String, 'robot/state', qos_reliable)
         self.twist_publisher_ = self.create_publisher(Twist, 'cmd_vel', qos_reliable)
 
@@ -69,6 +77,9 @@ class StateMachine(rclpy.node.Node):
 
         self.publish_current_state()
         self.send_cmd_vel(0.0, 0.0)
+
+    def recommended_speed_callback(self, msg: Float64):
+        self.recommended_speed = msg.data
 
     def keyboard_command_callback(self, msg: String):
         if msg.data == 'toggle_pause':
@@ -94,8 +105,8 @@ class StateMachine(rclpy.node.Node):
 
     def obstacle_passed_callback(self, msg: Bool):
         if self.manual_pause_active: return
-        if msg.data and self.state == STATE_PASSING_OBSTACLE:
-             self.obstacle_just_passed = True
+        if msg.data and self.state == STATE_PASSING_OBSTACLE or self.state == STATE_FOLLOW_LANE:
+             self.obstacle_just_passed = True # Wird in control_loop verarbeitet
 
     def traffic_light_callback(self, msg: Bool):
         if self.manual_pause_active: return
@@ -202,7 +213,11 @@ class StateMachine(rclpy.node.Node):
                 self.obstacle_just_passed = False
                 self.obstacle_is_blocking = False
             elif current_internal_state == STATE_PASSING_OBSTACLE:
-                pass
+                self.obstacle_is_blocking = False # Annahme: Wir sind in der Umfahrung, also ist das Hindernis nicht mehr blockierend
+                pass # Bleibe in PASSING_OBSTACLE, Steuerung liegt bei passing_obstacle_node
+
+            # c) Parkschild erkannt und bereit zum Parken?
+            #    (Nicht während PASSING_OBSTACLE oder wenn an Ampel gestoppt)
             elif self.parking_sign_visually_detected and \
                  current_internal_state not in [STATE_PASSING_OBSTACLE, STATE_PARKING, STATE_STOPPED_AT_TRAFFIC_LIGHT,
                                                 STATE_INTERSECTION_DRIVING_STRAIGHT, STATE_INTERSECTION_TURNING_LEFT, STATE_INTERSECTION_TURNING_RIGHT]: # Intersection States auch ausschließen
@@ -294,7 +309,7 @@ class StateMachine(rclpy.node.Node):
             self.change_state(next_state)
 
         if self.state == STATE_FOLLOW_LANE:
-            driving_speed = self.get_parameter('drivingspeed').get_parameter_value().double_value
+            driving_speed = self.recommended_speed
             angular_z = self.center_offset
             angular_z = np.clip(angular_z, -1.0, 1.0)
             self.send_cmd_vel(driving_speed, angular_z)

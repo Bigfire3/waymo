@@ -26,9 +26,10 @@ ODOM_TOPIC = '/odom'
 ROBOT_STATE_TOPIC = '/robot/state'
 LANE_OFFSET_TOPIC = '/lane/center_offset'
 PARKING_FINISHED_TOPIC = '/parking/finished'
+RECOMMENDED_SPEED_TOPIC = '/robot/recommended_speed'
 
 # Fahrparameter
-PARKING_LINEAR_SPEED = 0.1 # Einheitliche lineare Geschwindigkeit für die meisten Manöver
+PARKING_LINEAR_SPEED = 0.15
 MANEUVER_ANGULAR_SPEED_TURN = 0.8
 MAX_ANGULAR_Z_LANE_FOLLOW = 0.35
 
@@ -51,12 +52,12 @@ INITIAL_STOP_DURATION = 0.0 # Kurzer Stopp nach Schilderkennung (kann beibehalte
 # DRIVE_TO_NEXT_SPOT_DURATION -> Ersetzt durch DISTANCE_BETWEEN_SPOTS
 STOP_BEFORE_SCAN_DURATION = 0.0 # Kurzer Stopp vor dem Scannen der Lücke
 PARKING_DURATION = 10.0 # Wie lange im Parkplatz gewartet wird
-MOVE_SPOT_DISTANCE = 0.28 # Distanz für das Ein- und Ausparken in die Lücke (nicht die Fahrt zur Lücke)
-TURN_ANGLE_90_DEG = math.radians(90.0) # Korrekturwinkel für 90 Grad Drehungen
+MOVE_SPOT_DISTANCE = 0.26 # Distanz für das Ein- und Ausparken in die Lücke (nicht die Fahrt zur Lücke)
+TURN_ANGLE_90_DEG = math.radians(89.0) # Korrekturwinkel für 90 Grad Drehungen
 GOAL_TOLERANCE_ANGLE_RAD = math.radians(2.0) # Toleranz für Drehmanöver
 
 # Neue Odometrie-basierte Distanzen
-DISTANCE_AFTER_INITIAL_SIGN = 0.5  # Meter, 51cm nach dem Schild
+DISTANCE_AFTER_INITIAL_SIGN = 0.49  # Meter, 51cm nach dem Schild
 DISTANCE_BETWEEN_SPOTS = 0.34       # Meter, 33cm von Parklücke zu Parklücke
 ODOM_DISTANCE_TOLERANCE = 0.01      # Meter, Toleranz für das Erreichen der Zieldistanz (2cm)
 
@@ -91,6 +92,8 @@ class ParkingNode(Node):
     def __init__(self):
         super().__init__(NODE_NAME)
 
+        self.declare_parameter('fallback_parking_speed', 0.115)
+        self.declare_parameter('max_driving_speed_in_parking_mode', 0.125)
         self.current_robot_state_from_manager = ""
         self.parking_phase = ParkingPhase.IDLE
         self.current_center_offset = 0.0
@@ -116,6 +119,8 @@ class ParkingNode(Node):
 
         self.parking_attempts_count = 0 # Zählt Versuche, eine freie Lücke zu finden/anzufahren
 
+        self.recommended_speed = self.get_parameter('fallback_parking_speed').value
+
         qos_reliable = QoSProfile(reliability=ReliabilityPolicy.RELIABLE, history=HistoryPolicy.KEEP_LAST, depth=1)
         qos_best_effort = QoSProfile(reliability=ReliabilityPolicy.BEST_EFFORT, history=HistoryPolicy.KEEP_LAST, depth=1)
 
@@ -124,6 +129,8 @@ class ParkingNode(Node):
         self.offset_subscriber = self.create_subscription(Float64, LANE_OFFSET_TOPIC, self.lane_offset_callback, qos_best_effort)
         self.odom_subscriber = self.create_subscription(Odometry, ODOM_TOPIC, self.odom_callback, qos_best_effort)
 
+        self.recommended_speed_subscriber = self.create_subscription(Float64, RECOMMENDED_SPEED_TOPIC, self.recommended_speed_callback, qos_reliable)
+
         self.cmd_vel_publisher = self.create_publisher(Twist, CMD_VEL_TOPIC, qos_reliable)
         self.parking_finished_publisher = self.create_publisher(Bool, PARKING_FINISHED_TOPIC, qos_reliable)
 
@@ -131,6 +138,9 @@ class ParkingNode(Node):
         self.control_timer = self.create_timer(self.control_timer_period, self.parking_sequence_controller)
 
         # self.get_logger().info(f"{NODE_NAME} initialisiert.")
+
+    def recommended_speed_callback(self, msg: Float64):
+        self.recommended_speed = msg.data
 
     def robot_state_manager_callback(self, msg: String):
         new_state_from_manager = msg.data
@@ -323,7 +333,7 @@ class ParkingNode(Node):
 
         elif self.parking_phase == ParkingPhase.DRIVING_FOR_INITIAL_LASER_SCAN:
             if not self.initial_sign_laser_detected:
-                self.follow_lane_slowly() # Langsam fahren und auf Laser-Schilderkennung warten
+                self.follow_lane_with_recommended_speed() # Langsam fahren und auf Laser-Schilderkennung warten
             else:
                 # Sollte durch scan_callback bereits in INITIAL_SIGN_STOPPING gewechselt sein
                 self.stop_robot()
@@ -353,7 +363,7 @@ class ParkingNode(Node):
                 self.stop_robot()
                 self.change_parking_phase(ParkingPhase.MANEUVER_COMPLETE) # Parken fehlgeschlagen
             else:
-                self.follow_lane_slowly() # Weiterfahren mit Spurhaltung
+                self.follow_lane_with_recommended_speed() # Weiterfahren mit Spurhaltung
 
         elif self.parking_phase == ParkingPhase.DRIVING_TO_NEXT_SPOT_ODOM:
             traveled_distance = math.sqrt(
@@ -376,7 +386,7 @@ class ParkingNode(Node):
                     # Versuche, die nächste Lücke anzufahren (springt quasi über die nicht erreichte Lücke)
                     self.change_parking_phase(ParkingPhase.DRIVING_TO_NEXT_SPOT_ODOM)
             else:
-                self.follow_lane_slowly() # Weiterfahren mit Spurhaltung
+                self.follow_lane_with_recommended_speed() # Weiterfahren mit Spurhaltung
 
         elif self.parking_phase == ParkingPhase.STOPPING_BEFORE_SCAN:
             self.stop_robot()
@@ -444,10 +454,11 @@ class ParkingNode(Node):
                 self.change_parking_phase(ParkingPhase.MANEUVER_COMPLETE)
 
 
-    def follow_lane_slowly(self):
-        """Fährt langsam geradeaus und versucht, den Lane-Offset auszugleichen."""
+    def follow_lane_with_recommended_speed(self):
+        max_speed_in_parking = self.get_parameter('max_driving_speed_in_parking_mode').value
+        effective_linear_speed = min(self.recommended_speed, max_speed_in_parking)
         twist_msg = Twist()
-        twist_msg.linear.x = PARKING_LINEAR_SPEED # Einheitliche langsame Geschwindigkeit
+        twist_msg.linear.x = effective_linear_speed 
         # Begrenze den Drehwinkel basierend auf dem Offset, um Übersteuern zu vermeiden
         raw_angular_z = self.current_center_offset * 1.0 # P-Regler für Offset; Faktor ggf. anpassen
         twist_msg.angular.z = float(np.clip(raw_angular_z, -MAX_ANGULAR_Z_LANE_FOLLOW, MAX_ANGULAR_Z_LANE_FOLLOW))
