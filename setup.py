@@ -34,6 +34,8 @@ setup(
             'keyboard_handler_node = waymo.keyboard_handler_node:main',
             'sign_detection_node = waymo.sign_detection_node:main',
             'parking_node = waymo.parking_node:main',
+            'reflection_filter = waymo.reflection_filter:main',
+            'speed_governor_node = waymo.speed_governor_node:main',
         ],
     },
 )

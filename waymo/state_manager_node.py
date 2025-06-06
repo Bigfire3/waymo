@@ -27,7 +27,7 @@ class StateMachine(rclpy.node.Node):
 
     def __init__(self):
         super().__init__('state_manager_node')
-        self.declare_parameter('drivingspeed', 0.125)  # Standardgeschwindigkeit in m/s
+        self.declare_parameter('fallback_drivingspeed', 0.1)  # Fallback-Geschwindigkeit in m/s
 
         # Interne Variablen
         self.center_offset = 0.0
@@ -40,6 +40,8 @@ class StateMachine(rclpy.node.Node):
         self.initial_traffic_light_check_done = False
         self.parking_sign_visually_detected = False # Um zu wissen, dass das Schild mal gesehen wurde
         self.parking_maneuver_finished = False # Flag, um den Abschluss des Parkens zu erkennen
+
+        self.recommended_speed = self.get_parameter('fallback_drivingspeed').value # Initialwert
 
         # QoS Profile
         qos_sensor = QoSProfile(reliability=ReliabilityPolicy.BEST_EFFORT, history=HistoryPolicy.KEEP_LAST, depth=1)
@@ -54,6 +56,8 @@ class StateMachine(rclpy.node.Node):
         self.sign_subscription = self.create_subscription(String, '/sign', self.sign_detection_callback, qos_reliable)
         self.parking_finished_subscription = self.create_subscription(Bool, '/parking/finished', self.parking_finished_callback, qos_reliable)
 
+        self.recommended_speed_subscription = self.create_subscription(Float64, '/robot/recommended_speed', self.recommended_speed_callback, qos_reliable)
+
         # Publishers
         self.state_publisher_ = self.create_publisher(String, 'robot/state', qos_reliable)
         self.twist_publisher_ = self.create_publisher(Twist, 'cmd_vel', qos_reliable)
@@ -65,6 +69,9 @@ class StateMachine(rclpy.node.Node):
         # Initiale Zustandsmeldung und Stopp
         self.publish_current_state()
         self.send_cmd_vel(0.0, 0.0)
+
+    def recommended_speed_callback(self, msg: Float64):
+        self.recommended_speed = msg.data
 
     def keyboard_command_callback(self, msg: String):
         if msg.data == 'toggle_pause':
@@ -103,7 +110,7 @@ class StateMachine(rclpy.node.Node):
 
     def obstacle_passed_callback(self, msg: Bool):
         if self.manual_pause_active: return
-        if msg.data and self.state == STATE_PASSING_OBSTACLE:
+        if msg.data and self.state == STATE_PASSING_OBSTACLE or self.state == STATE_FOLLOW_LANE:
              self.obstacle_just_passed = True # Wird in control_loop verarbeitet
 
     def traffic_light_callback(self, msg: Bool):
@@ -177,6 +184,7 @@ class StateMachine(rclpy.node.Node):
 
             # b) Aktive Hindernisumfahrung (hat Vorrang vor Parken oder normalem Fahren)
             elif current_internal_state == STATE_PASSING_OBSTACLE:
+                self.obstacle_is_blocking = False # Annahme: Wir sind in der Umfahrung, also ist das Hindernis nicht mehr blockierend
                 pass # Bleibe in PASSING_OBSTACLE, Steuerung liegt bei passing_obstacle_node
 
             # c) Parkschild erkannt und bereit zum Parken?
@@ -230,7 +238,7 @@ class StateMachine(rclpy.node.Node):
 
         # --- Aktionen basierend auf dem aktuellen Zustand ---
         if self.state == STATE_FOLLOW_LANE:
-            driving_speed = self.get_parameter('drivingspeed').get_parameter_value().double_value
+            driving_speed = self.recommended_speed
             angular_z = self.center_offset
             angular_z = np.clip(angular_z, -1.0, 1.0)
             self.send_cmd_vel(driving_speed, angular_z)

@@ -28,9 +28,9 @@ class GuiDebugNode(Node):
         self.debug_topics = OrderedDict([
             ('roi', '/debug/cam/roi'),
             ('lane_annotated', '/debug/cam/lane_annotated'),
-            ('raw_markings', '/debug/cam/raw_markings'),
-            ('warped', '/debug/cam/warped'),
-            ('filtered_warped', '/debug/cam/filtered_warped'),
+            ('closed_edges', '/debug/cam/closed_edges'),
+            ('filled_areas', '/debug/cam/filled_areas'),
+            ('thickness_filtered', '/debug/cam/thickness_filtered'),
             ('sliding_window', '/debug/cam/sliding_window'),
             ('traffic_light_mask', '/debug/cam/traffic_mask'),
             ('traffic_light_overlay', '/debug/cam/traffic_overlay'),
@@ -77,8 +77,8 @@ class GuiDebugNode(Node):
         canvas_update_period = 0.1
         self.canvas_timer = self.create_timer(canvas_update_period, self.update_canvas)
 
-        self.get_logger().info(f"GuiDebugNode gestartet. Drücke 'd' im Keyboard Handler, um das Debug-Canvas anzuzeigen.")
-        self.get_logger().info(f"Skalierungsfaktor: {self.get_parameter('canvas_scale_factor').value}")
+        # self.get_logger().info(f"GuiDebugNode gestartet. Drücke 'd' im Keyboard Handler, um das Debug-Canvas anzuzeigen.")
+        # self.get_logger().info(f"Skalierungsfaktor: {self.get_parameter('canvas_scale_factor').value}")
         self.get_logger().info(f"Robot Status: {self.current_robot_state}")
 
 
