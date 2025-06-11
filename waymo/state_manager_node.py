@@ -12,7 +12,7 @@ from geometry_msgs.msg import Twist
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 
 # --- Zustand für manuelle Pause ---
-MANUAL_PAUSE_STATE = 'MANUAL_PAUSE'
+STATE_MANUAL_PAUSE = 'MANUAL_PAUSE'
 KEYBOARD_COMMAND_TOPIC = '/keyboard_command'
 
 # --- Roboter Zustände ---
@@ -88,13 +88,20 @@ class StateMachine(rclpy.node.Node):
     def toggle_manual_pause(self):
         if not self.manual_pause_active:
             self.manual_pause_active = True
-            self.send_cmd_vel(0.0, 0.0) 
-            pause_state_msg = String(); pause_state_msg.data = MANUAL_PAUSE_STATE
+            self.send_cmd_vel(0.0, 0.0) # Sofort anhalten
+            pause_state_msg = String(); pause_state_msg.data = STATE_MANUAL_PAUSE
             try:
                  if rclpy.ok() and self.context.ok(): self.state_publisher_.publish(pause_state_msg)
             except Exception: pass
         else:
             self.manual_pause_active = False
+            self.obstacle_is_blocking = False # Hindernisstatus zurücksetzen
+            self.obstacle_just_passed = False # Reset, falls wir gerade in der Umfahrung waren
+            self.parking_sign_visually_detected = False # Reset, falls wir gerade parken wollten
+            self.parking_maneuver_finished = False # Reset, falls wir gerade parken wollten
+            self.initial_traffic_light_check_done = True # Damit die Ampelphase nicht erneut geprüft wird und wir direkt in FOLLOW_LANE gehen
+            self.state = STATE_FOLLOW_LANE # Nach manueller Pause in FOLLOW_LANE zurückkehren
+
 
     def obstacle_detection_callback(self, msg: Bool):
         if self.manual_pause_active: return
@@ -333,7 +340,8 @@ class StateMachine(rclpy.node.Node):
             self.publish_current_state()
 
     def publish_current_state(self):
-        state_to_publish = MANUAL_PAUSE_STATE if self.manual_pause_active else self.state
+        # Wählt den zu publizierenden Zustand: MANUAL_PAUSE hat Vorrang vor dem internen Zustand.
+        state_to_publish = STATE_MANUAL_PAUSE if self.manual_pause_active else self.state
         state_msg = String(); state_msg.data = state_to_publish
         try:
              if rclpy.ok() and self.context.ok(): self.state_publisher_.publish(state_msg)
