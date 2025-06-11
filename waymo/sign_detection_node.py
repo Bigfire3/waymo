@@ -211,9 +211,9 @@ class SignDetectionNode(Node):
                     sign_msg_data = None
                     if template_name in ('park_sign_0', 'park_sign_1'):
                         sign_msg_data = "parking_sign_detected"
-                    elif template_name == 'straight_sign':
+                    elif template_name in ('straight_sign_0', 'straight_sign_1', ):
                         sign_msg_data = "straight_sign_detected"
-                    elif template_name == 'left_sign':
+                    elif template_name in ('left_sign_0', 'left_sign_1'):
                         sign_msg_data = "left_sign_detected"
                     elif template_name in ('right_sign_0', 'right_sign_1'):
                         sign_msg_data = "right_sign_detected"

@@ -49,9 +49,6 @@ class StateMachine(rclpy.node.Node):
         self.left_sign_visually_detected = False
         self.intersection_maneuver_finished = False
 
-        self.parking_sign_visually_detected = False # Um zu wissen, dass das Schild mal gesehen wurde
-        self.parking_maneuver_finished = False # Flag, um den Abschluss des Parkens zu erkennen
-
         self.recommended_speed = self.get_parameter('fallback_drivingspeed').value # Initialwert
 
         # QoS Profile
@@ -111,6 +108,10 @@ class StateMachine(rclpy.node.Node):
                 self.obstacle_just_passed = False # Reset, falls wir gerade in der Umfahrung waren
                 self.parking_sign_visually_detected = False # Reset, falls wir gerade parken wollten
                 self.parking_maneuver_finished = False # Reset, falls wir gerade parken wollten
+                self.straight_sign_visually_detected = False
+                self.right_sign_visually_detected = False
+                self.left_sign_visually_detected = False
+                self.intersection_maneuver_finished = False
                 self.state = STATE_FOLLOW_LANE # Nach manueller Pause in FOLLOW_LANE zurückkehren
             elif toggle_command == 'toggle_parking':
                 self.manual_pause_active = False
@@ -119,6 +120,10 @@ class StateMachine(rclpy.node.Node):
                 self.obstacle_just_passed = False
                 self.parking_sign_visually_detected = True # Setze Flag, um in PARKING zu wechseln
                 self.parking_maneuver_finished = False # Reset, da wir jetzt parken wollen
+                self.straight_sign_visually_detected = False
+                self.right_sign_visually_detected = False
+                self.left_sign_visually_detected = False
+                self.intersection_maneuver_finished = False
                 self.state = STATE_PARKING # Nach manueller Pause in PARKING wechseln
             elif toggle_command == 'toggle_traffic_light':
                 self.manual_pause_active = False
@@ -128,6 +133,10 @@ class StateMachine(rclpy.node.Node):
                 self.obstacle_just_passed = False # Reset, falls wir gerade in der Umfahrung waren
                 self.parking_sign_visually_detected = False # Reset, falls wir gerade parken wollten
                 self.parking_maneuver_finished = False # Reset, falls wir gerade parken wollten
+                self.straight_sign_visually_detected = False
+                self.right_sign_visually_detected = False
+                self.left_sign_visually_detected = False
+                self.intersection_maneuver_finished = False
                 self.state = STATE_STOPPED_AT_TRAFFIC_LIGHT # Nach manueller Pause in STOPPED_AT_TRAFFIC_LIGHT zurückkehren
             elif toggle_command == 'toggle_obstacle':
                 self.manual_pause_active = False
@@ -135,7 +144,11 @@ class StateMachine(rclpy.node.Node):
                 self.obstacle_is_blocking = True
                 self.obstacle_just_passed = False # Reset, falls wir gerade in der Umfahrung waren
                 self.parking_sign_visually_detected = False # Reset, falls wir gerade parken wollten
-                self.parking_maneuver_finished = False # Reset, falls wir gerade parken wollten
+                self.parking_maneuver_finished = False
+                self.straight_sign_visually_detected = False
+                self.right_sign_visually_detected = False
+                self.left_sign_visually_detected = False
+                self.intersection_maneuver_finished = False # Reset, falls wir gerade parken wollten
                 self.state = STATE_STOPPED_AT_OBSTACLE # Nach manueller Pause in STOPPED_AT_OBSTACLE zurückkehren
 
 
@@ -244,13 +257,6 @@ class StateMachine(rclpy.node.Node):
                 self.initial_traffic_light_check_done = True
                 next_state = STATE_FOLLOW_LANE
         else:
-            # --- DEBUG LOGGING VOR KREUZUNGSENTSCHEIDUNG ---
-            # self.get_logger().debug(f"Control Loop Check: Current State: {current_internal_state}, "
-            #                        f"Straight: {self.straight_sign_visually_detected}, "
-            #                        f"Right: {self.right_sign_visually_detected}, "
-            #                        f"Left: {self.left_sign_visually_detected}, "
-            #                        f"IntersectionFinished: {self.intersection_maneuver_finished}")
-            # ---------------------------------------------
 
             if current_internal_state == STATE_PASSING_OBSTACLE and self.obstacle_just_passed:
                 next_state = STATE_FOLLOW_LANE
@@ -300,9 +306,9 @@ class StateMachine(rclpy.node.Node):
                         STATE_INTERSECTION_DRIVING_STRAIGHT, STATE_INTERSECTION_TURNING_LEFT, STATE_INTERSECTION_TURNING_RIGHT
                     ]:
                 # self.get_logger().info(f"Bedingung (i) WAHR: straight_sign={self.straight_sign_visually_detected}. Wechsel zu INTERSEC_DRIVING_STRAIGHT.")
-                next_state = STATE_INTERSECTION_DRIVING_STRAIGHT
                 self.intersection_maneuver_finished = False 
                 self.straight_sign_visually_detected = False 
+                next_state = STATE_INTERSECTION_DRIVING_STRAIGHT
             
             # j) Rechts-Schild
             elif self.right_sign_visually_detected and \
@@ -311,9 +317,9 @@ class StateMachine(rclpy.node.Node):
                         STATE_INTERSECTION_DRIVING_STRAIGHT, STATE_INTERSECTION_TURNING_LEFT, STATE_INTERSECTION_TURNING_RIGHT
                     ]:
                 # self.get_logger().info(f"Bedingung (j) WAHR: right_sign={self.right_sign_visually_detected}. Wechsel zu INTERSEC_TURNING_RIGHT.")
-                next_state = STATE_INTERSECTION_TURNING_RIGHT
                 self.intersection_maneuver_finished = False 
                 self.right_sign_visually_detected = False 
+                next_state = STATE_INTERSECTION_TURNING_RIGHT
 
             # k) Links-Schild
             elif self.left_sign_visually_detected and \
@@ -322,9 +328,9 @@ class StateMachine(rclpy.node.Node):
                         STATE_INTERSECTION_DRIVING_STRAIGHT, STATE_INTERSECTION_TURNING_LEFT, STATE_INTERSECTION_TURNING_RIGHT
                     ]:
                 # self.get_logger().info(f"Bedingung (k) WAHR: left_sign={self.left_sign_visually_detected}. Wechsel zu INTERSEC_TURNING_LEFT.")
-                next_state = STATE_INTERSECTION_TURNING_LEFT
                 self.intersection_maneuver_finished = False 
                 self.left_sign_visually_detected = False 
+                next_state = STATE_INTERSECTION_TURNING_LEFT
 
             # m) Bereits in einem Intersection State und Manöver läuft noch
             elif (current_internal_state == STATE_INTERSECTION_DRIVING_STRAIGHT or \
