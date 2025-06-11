@@ -232,8 +232,9 @@ def main(args=None):
     except KeyboardInterrupt: pass # Log entfernt
     except Exception as e:
         # Log to stderr instead of ROS logger
-        print(f"Unhandled exception in PassingObstacleNode: {e}", file=sys.stderr); traceback.print_exc()
+        # print(f"Unhandled exception in PassingObstacleNode: {e}", file=sys.stderr); traceback.print_exc()
         # Error Log entfernt
+        pass
     finally:
         if node is not None: node.destroy_node()
         if rclpy.ok(): rclpy.shutdown()

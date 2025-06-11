@@ -121,10 +121,7 @@ def main(args=None):
     except KeyboardInterrupt:
         pass
     except Exception as e:
-        if node:
-            node.get_logger().fatal(f"FATAL ERROR in SpeedGovernorNode: {e}\n{rclpy.traceback.format_exc()}")
-        else:
-            print(f"FATAL ERROR before SpeedGovernorNode init: {e}\n{rclpy.traceback.format_exc()}", file=sys.stderr)
+        pass
     finally:
         if node:
             node.destroy_node()

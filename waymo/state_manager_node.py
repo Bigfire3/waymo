@@ -144,7 +144,7 @@ class StateMachine(rclpy.node.Node):
 
     def obstacle_passed_callback(self, msg: Bool):
         if self.manual_pause_active: return
-        if msg.data and self.state == STATE_PASSING_OBSTACLE or self.state == STATE_FOLLOW_LANE:
+        if msg.data and (self.state == STATE_PASSING_OBSTACLE or self.state == STATE_FOLLOW_LANE):
              self.obstacle_just_passed = True # Wird in control_loop verarbeitet
 
     def traffic_light_callback(self, msg: Bool):
