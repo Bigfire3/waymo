@@ -14,9 +14,11 @@ import traceback
 NODE_NAME = 'keyboard_handler_node'
 COMMAND_TOPIC = '/keyboard_command'
 TOGGLE_PAUSE_KEY = 's'
-# --- NEU: Taste für Debug-Canva ---
 TOGGLE_DEBUG_KEY = 'd'
-# --- Ende NEU ---
+TOGGLE_LANE_KEY = 'l'
+TOGGLE_PARKING_KEY = 'p'
+TOGGLE_TRAFFIC_LIGHT_KEY = 't'
+TOGGLE_OBSTACLE_KEY = 'o'
 
 class KeyboardHandlerNode(rclpy.node.Node):
 
@@ -69,6 +71,18 @@ class KeyboardHandlerNode(rclpy.node.Node):
                     elif key == TOGGLE_DEBUG_KEY:
                         cmd_to_send = 'toggle_debug_canvas'
                         self.get_logger().info(f'"{TOGGLE_DEBUG_KEY}" pressed, sending "{cmd_to_send}" command.')
+                    elif key == TOGGLE_LANE_KEY:
+                        cmd_to_send = 'toggle_lane'
+                        self.get_logger().info(f'"{TOGGLE_LANE_KEY}" pressed, sending "{cmd_to_send}" command.')
+                    elif key == TOGGLE_PARKING_KEY:
+                        cmd_to_send = 'toggle_parking'
+                        self.get_logger().info(f'"{TOGGLE_PARKING_KEY}" pressed, sending "{cmd_to_send}" command.')
+                    elif key == TOGGLE_TRAFFIC_LIGHT_KEY:
+                        cmd_to_send = 'toggle_traffic_light'
+                        self.get_logger().info(f'"{TOGGLE_TRAFFIC_LIGHT_KEY}" pressed, sending "{cmd_to_send}" command.')
+                    elif key == TOGGLE_OBSTACLE_KEY:
+                        cmd_to_send = 'toggle_obstacle'
+                        self.get_logger().info(f'"{TOGGLE_OBSTACLE_KEY}" pressed, sending "{cmd_to_send}" command.')
                     elif key == '\x03': # Ctrl+C
                         self.get_logger().info('Ctrl+C detected in thread, stopping listener...')
                         self.listener_thread_active = False
