@@ -44,6 +44,7 @@ SPOT_SCAN_ANGLE_MIN_DEG = 70.0
 SPOT_SCAN_ANGLE_MAX_DEG = 110.0
 SPOT_SCAN_ANGLE_MIN_RAD = math.radians(SPOT_SCAN_ANGLE_MIN_DEG)
 SPOT_SCAN_ANGLE_MAX_RAD = math.radians(SPOT_SCAN_ANGLE_MAX_DEG)
+
 PARKING_SPOT_CLEAR_DISTANCE = 0.4 # Distanz, um zu prüfen, ob eine Parklücke frei ist
 
 # Zeit- und Distanzparameter (Odometrie basiert)
