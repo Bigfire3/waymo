@@ -106,7 +106,8 @@ class Lane:
             return None
 
         # Y-Koordinate am unteren Rand für die Berechnung (etwas über dem absoluten Rand)
-        self.y_bottom = self.orig_frame.shape[0] - 60
+        y_bottom_height = params.get('y_bottom_height', 60) # Standardwert 60 Pixel
+        self.y_bottom = self.orig_frame.shape[0] - y_bottom_height
 
         # Berechne die X-Koordinaten der Linien am unteren Rand
         try:

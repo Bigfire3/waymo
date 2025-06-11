@@ -26,10 +26,12 @@ class SpeedGovernorNode(Node):
         # Faktor zur Reduzierung der Geschwindigkeit basierend auf dem Offset.
         # Ein größerer Faktor führt zu stärkerer Reduzierung bei gleichem Offset.
         # Dieser Wert muss wahrscheinlich experimentell angepasst werden.
-        self.declare_parameter('speed_reduction_factor', 0.5,
+        self.declare_parameter('speed_reduction_factor', 0.3,
                                float_desc("Factor to reduce speed based on lane offset", 0.0, 2.0, 0.001))
         self.declare_parameter('min_speed', 0.05,
                                float_desc("Minimum allowed speed during movement (m/s)", 0.0, 0.1, 0.005))
+        self.declare_parameter('center_offset_threshold', 0.1,
+                               float_desc("Threshold for center offset to apply speed reduction (m)", 0.0, 1.0, 0.01))
 
         # Initialen Parameterwert loggen
         # self.log_parameters()
@@ -85,17 +87,22 @@ class SpeedGovernorNode(Node):
         max_speed = self.get_parameter('max_straight_speed').value
         reduction_factor = self.get_parameter('speed_reduction_factor').value
         min_allowed_speed = self.get_parameter('min_speed').value
+        center_offset_threshold = self.get_parameter('center_offset_threshold').value
 
-        # Berechne die Reduktion basierend auf dem Betrag des Offsets
-        # Je größer der Offset, desto größer die Reduktion
-        speed_reduction = reduction_factor * abs(self.current_center_offset)
+        if abs(self.current_center_offset) > center_offset_threshold:
+            # Berechne die Reduktion basierend auf dem Betrag des Offsets
+            # Je größer der Offset, desto größer die Reduktion
+            speed_reduction = reduction_factor * abs(self.current_center_offset)
 
-        # Berechne die Zielgeschwindigkeit
-        target_speed = max_speed - speed_reduction
+            # Berechne die Zielgeschwindigkeit
+            target_speed = max_speed - speed_reduction
 
-        # Stelle sicher, dass die Geschwindigkeit nicht unter die Mindestgeschwindigkeit fällt
-        # und nicht über der Maximalgeschwindigkeit liegt (obwohl das durch die Berechnung schon gegeben sein sollte)
-        recommended_speed_value = np.clip(target_speed, min_allowed_speed, max_speed)
+            # Stelle sicher, dass die Geschwindigkeit nicht unter die Mindestgeschwindigkeit fällt
+            # und nicht über der Maximalgeschwindigkeit liegt (obwohl das durch die Berechnung schon gegeben sein sollte)
+            recommended_speed_value = np.clip(target_speed, min_allowed_speed, max_speed)
+        else:
+            # Wenn der Offset klein genug ist, setze die Geschwindigkeit auf die maximale geradeaus Geschwindigkeit
+            recommended_speed_value = max_speed
 
         # Erstelle und publiziere die Nachricht
         speed_msg = Float64()

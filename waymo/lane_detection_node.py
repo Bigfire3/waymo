@@ -37,6 +37,7 @@ class LaneDetectionNode(Node):
         self.declare_parameter('block_size', 7, int_desc("Auto-S: block_size"))
         self.declare_parameter('c_value', 200, int_desc("Auto-S: c_value"))
         self.declare_parameter('center_factor', 0.015, float_desc("Center_Calc: factor")) # Schrittweite 0.001
+        self.declare_parameter('y_bottom_height', 80, int_desc("Y-Bottom-Height", min_val=0, max_val=144, step=1)) # Schrittweite 1
         self.declare_parameter('smoothing_on_off', False, bool_desc("Smoothing on/off"))
         self.declare_parameter('weight_previous_fit', 0.75, float_desc("Weight previous fit", min_val=0.0, max_val=1.0, step=0.01))
         self.declare_parameter('weight_current_fit', 0.25, float_desc("Weight current fit", min_val=0.0, max_val=1.0, step=0.01))
