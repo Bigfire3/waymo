@@ -179,18 +179,18 @@ class Lane:
         image_copy = frame.copy() if frame is not None else self.orig_frame.copy()
         h, w = image_copy.shape[:2]
         font_scale = float(0.6 * w / 640); thickness = max(1, int(2 * w / 640))
-        pos_curve = (int(10 * w / 640), int(30 * h / 480))
-        pos_offset = (int(10 * w / 640), int(60 * h / 480))
+        pos_curve = (int(w - 250), int(30))
+        pos_offset = (int(w - 250), int(60))
         curve_radius_text = "Curve Radius: N/A"
         valid_curves = [c for c in [self.left_curvem, self.right_curvem] if c is not None and c != float('inf')]
         if valid_curves:
              avg_curve = np.mean(valid_curves)
              curve_radius_text = "Curve Radius: straight" if avg_curve > 5000 else f"Curve Radius: {avg_curve:.1f} m"
         elif self.left_curvem == float('inf') or self.right_curvem == float('inf'): curve_radius_text = "Curve Radius: straight"
-        cv2.putText(image_copy, curve_radius_text, pos_curve, cv2.FONT_HERSHEY_SIMPLEX, font_scale, (255, 255, 255), thickness, cv2.LINE_AA)
+        cv2.putText(image_copy, curve_radius_text, pos_curve, cv2.FONT_HERSHEY_SIMPLEX, font_scale, (0, 0, 0), thickness, cv2.LINE_AA)
         offset_text = "Center Offset: N/A"
         if self.center_offset is not None: offset_text = f"Center Offset: {self.center_offset:.3f}" # Einheit unklar
-        cv2.putText(image_copy, offset_text, pos_offset, cv2.FONT_HERSHEY_SIMPLEX, font_scale, (255, 255, 255), thickness, cv2.LINE_AA)
+        cv2.putText(image_copy, offset_text, pos_offset, cv2.FONT_HERSHEY_SIMPLEX, font_scale, (0, 0, 0), thickness, cv2.LINE_AA)
         if plot:
             try: cv2.imshow("Image with Curvature and Offset", image_copy); cv2.waitKey(1)
             except Exception as e: print(f"Fehler beim Anzeigen von Curvature/Offset: {e}")
