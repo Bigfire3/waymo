@@ -22,7 +22,7 @@ DEFAULT_INITIAL_DRIVE_SPEED = 0.125
 DEFAULT_STRAIGHT_SPEED = 0.125
 DEFAULT_TURN_FORWARD_SPEED = 0.125
 DEFAULT_TURN_ANGULAR_SPEED_RIGHT = 0.45
-DEFAULT_TURN_ANGULAR_SPEED_LEFT = 0.25
+DEFAULT_TURN_ANGULAR_SPEED_LEFT = 0.26
 DEFAULT_STRAIGHT_DISTANCE = 0.80
 DEFAULT_POST_TURN_STRAIGHT_DISTANCE = 0.1
 DEFAULT_SIDE_SIGN_SCAN_TIMEOUT = 10.0
@@ -111,6 +111,7 @@ class IntersectionHandlingNode(Node):
                 self.maneuver_active_by_statemgr = True
                 self.active_intersection_state = new_state_from_manager
                 if self.current_phase == IntersectionPhase.IDLE:
+                    self.side_sign_detected_by_laser = False # Wichtig für den Neustart der Schildsuche
                     self.change_phase(IntersectionPhase.DRIVING_TO_SIDE_SIGN_REFERENCE)
                 else:
                     # SM will starten, aber wir sind nicht IDLE. Das ist unerwartet.
@@ -165,25 +166,46 @@ class IntersectionHandlingNode(Node):
             self.change_phase(IntersectionPhase.WAITING_AT_REFERENCE_POINT)
 
     def _check_laser_zone(self, scan_msg: LaserScan, angle_min_rad_target: float, angle_max_rad_target: float, detection_distance: float) -> bool:
+        # Stellt sicher, dass angle_increment gültig ist, um Division durch Null oder Endlosschleifen zu vermeiden
         if scan_msg.angle_increment <= 0.0:
             self.get_logger().warn("Ungültiges angle_increment im Laserscan.", throttle_duration_sec=10)
             return False
+        
+        # Berechne den tatsächlichen maximalen Winkel des Scans
         actual_scan_angle_max_rad = scan_msg.angle_min + (len(scan_msg.ranges) - 1) * scan_msg.angle_increment
+        
+        # Stelle sicher, dass der Zielbereich innerhalb des Scanbereichs liegt
         adj_target_min_rad = max(angle_min_rad_target, scan_msg.angle_min)
         adj_target_max_rad = min(angle_max_rad_target, actual_scan_angle_max_rad)
+
+        # Wenn der angepasste Bereich ungültig ist (min >= max), gibt es keine gültigen Indizes
         if adj_target_min_rad >= adj_target_max_rad:
+            #self.get_logger().debug(f"Angepasster Scanbereich ungültig: min_rad={adj_target_min_rad}, max_rad={adj_target_max_rad}")
             return False
+
+        # Konvertiere Winkel in Array-Indizes
+        # Runden auf den nächsten Index oder int() verwenden (abschneiden) kann je nach Anforderung variieren.
+        # Hier verwenden wir int() für den Start und stellen sicher, dass der Endindex nicht überschritten wird.
         start_index = max(0, int((adj_target_min_rad - scan_msg.angle_min) / scan_msg.angle_increment))
         end_index = min(len(scan_msg.ranges) - 1, int((adj_target_max_rad - scan_msg.angle_min) / scan_msg.angle_increment))
+        
+        # Erneute Prüfung, ob die Indizes nach Anpassung und Konvertierung gültig sind
         if start_index > end_index:
+            #self.get_logger().debug(f"Startindex {start_index} > Endindex {end_index} nach Indexberechnung.")
             return False
+
+        #self.get_logger().debug(f"Scanning zone from index {start_index} to {end_index} for distance < {detection_distance:.2f}m.")
         for i in range(start_index, end_index + 1):
             dist = scan_msg.ranges[i]
+            # Prüfe auf gültige Distanzwerte (nicht unendlich, nicht NaN)
+            # und ob sie innerhalb des gültigen Bereichs des Sensors liegen
+            # und kleiner als die Zieldistanz sind.
             if not math.isinf(dist) and not math.isnan(dist) and \
                dist >= scan_msg.range_min and dist <= scan_msg.range_max and \
                dist < detection_distance:
-                return True
-        return False
+                #self.get_logger().debug(f"Hindernis bei Index {i} auf {dist:.2f}m erkannt (Ziel < {detection_distance:.2f}m).")
+                return True # Hindernis im Zielbereich und innerhalb der Distanz gefunden
+        return False # Kein Hindernis im Zielbereich gefunden
 
     def change_phase(self, new_phase: IntersectionPhase):
         # Verhindere Log-Spam für wiederholte IDLE-Wechsel, wenn wir schon IDLE sind und nicht mehr aktiv sein sollen.

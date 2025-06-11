@@ -274,15 +274,25 @@ class StateMachine(rclpy.node.Node):
                 next_state = STATE_PARKING
                 self.parking_sign_visually_detected = False 
                 self.parking_maneuver_finished = False 
+            
             elif current_internal_state == STATE_PARKING and self.parking_maneuver_finished:
                 next_state = STATE_FOLLOW_LANE
                 self.parking_sign_visually_detected = False 
                 self.parking_maneuver_finished = False 
+            
             elif current_internal_state == STATE_PARKING and not self.parking_maneuver_finished:
                 pass
-            elif self.obstacle_is_blocking and \
-                 current_internal_state not in [STATE_PASSING_OBSTACLE, STATE_PARKING, STATE_STOPPED_AT_OBSTACLE]:
+            
+            elif \
+            self.obstacle_is_blocking and current_internal_state not in [ \
+            STATE_PASSING_OBSTACLE, \
+            STATE_PARKING, \
+            STATE_STOPPED_AT_OBSTACLE, \
+            STATE_INTERSECTION_DRIVING_STRAIGHT, \
+            STATE_INTERSECTION_TURNING_LEFT, \
+            STATE_INTERSECTION_TURNING_RIGHT]:
                 next_state = STATE_STOPPED_AT_OBSTACLE
+            
             elif current_internal_state == STATE_STOPPED_AT_OBSTACLE and self.obstacle_is_blocking:
                  next_state = STATE_PASSING_OBSTACLE
             

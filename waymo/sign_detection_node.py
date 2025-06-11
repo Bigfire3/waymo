@@ -23,7 +23,7 @@ class SignDetectionNode(Node):
         self.declare_parameter('publish_binary_sign', True, bool_desc("Publish binary frame with colored detection boxes as cv2 image"))
         self.declare_parameter('binary_threshold', 100, int_desc("Threshold for binary image"))
         # NEU: Parameter für die Erkennungsschwelle des Template Matchings
-        self.declare_parameter('detection_confidence_threshold', 0.7, 
+        self.declare_parameter('detection_confidence_threshold', 0.75, 
                                ParameterDescriptor(type=ParameterType.PARAMETER_DOUBLE, 
                                                  description="Confidence threshold for template matching (0.0 to 1.0)",
                                                  floating_point_range=[FloatingPointRange(from_value=0.0, to_value=1.0, step=0.01)]))
