@@ -21,7 +21,7 @@ class SignDetectionNode(Node):
             integer_range=[IntegerRange(from_value=min_val, to_value=max_val, step=step)])
         
         self.declare_parameter('publish_binary_sign', True, bool_desc("Publish binary frame with colored detection boxes as cv2 image"))
-        self.declare_parameter('binary_threshold', 100, int_desc("Threshold for binary image"))
+        self.declare_parameter('binary_threshold', 70, int_desc("Threshold for binary image"))
         # NEU: Parameter für die Erkennungsschwelle des Template Matchings
         self.declare_parameter('detection_confidence_threshold', 0.75, 
                                ParameterDescriptor(type=ParameterType.PARAMETER_DOUBLE, 
@@ -116,6 +116,8 @@ class SignDetectionNode(Node):
         else:
             gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         _, binary_image = cv2.threshold(gray_image, binary_threshold_value, 255, cv2.THRESH_BINARY)
+        # cv2.imshow("Binary Image", binary_image)  # Debugging-Zweck, kann entfernt werden
+        # cv2.waitKey(0)
         return binary_image
 
     def listener_callback(self, msg):
