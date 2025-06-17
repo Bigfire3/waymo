@@ -62,8 +62,8 @@ class TrafficLightDetector(Node):
         self.declare_parameter('hsv_upper_s', 255, int_desc("Upper Saturation (0-255)"))
         self.declare_parameter('hsv_upper_v', 255, int_desc("Upper Value (0-255)"))     # Oberen Wert evtl. anpassen
         # Blob Area
-        self.declare_parameter('min_blob_area', 100, int_area_desc("Minimum Blob Area (pixels)")) # Angepasster Startwert
-        self.declare_parameter('max_blob_area', 200, int_area_desc("Maximum Blob Area (pixels)"))# Deutlich erhöht
+        self.declare_parameter('min_blob_area', 50, int_area_desc("Minimum Blob Area (pixels)")) # Angepasster Startwert
+        self.declare_parameter('max_blob_area', 250, int_area_desc("Maximum Blob Area (pixels)"))# Deutlich erhöht
         # ROI
         self.declare_parameter('roi_crop_factor_h', 0.6, float_desc("ROI Crop Factor Height (0.1-1.0)", min_val=0.1, max_val=1.0, step = 0.01))
 
