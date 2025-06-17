@@ -55,6 +55,12 @@ class SpeedGovernorNode(Node):
             self.center_offset_callback,
             qos_sensor_data
         )
+        self.center_offset_subscription = self.create_subscription(
+            Float64,
+            '/lane/curvature',
+            self.curvature_callback,
+            qos_sensor_data
+        )
 
         # --- Publisher ---
         self.recommended_speed_publisher = self.create_publisher(
@@ -82,6 +88,9 @@ class SpeedGovernorNode(Node):
     def center_offset_callback(self, msg: Float64):
         self.current_center_offset = msg.data
         self.calculate_and_publish_speed()
+
+    def curvature_callback(self, msg: Float64):
+        self.curvature = msg.data
 
     def calculate_and_publish_speed(self):
         max_speed = self.get_parameter('max_straight_speed').value

@@ -61,7 +61,7 @@ class LaneDetectionNode(Node):
         self.declare_parameter('aspect_ratio', 2.0, float_desc("aspect_ratio", min_val=0.1, max_val=10.0, step=0.1))
         self.declare_parameter('compactness', 0.015, float_desc("compactness", min_val=0.001, max_val=0.2, step=0.001))
 
-        self.declare_parameter('sliding_window_margin_factor', 0.075, float_desc("sliding_window_margin_factor"))
+        self.declare_parameter('sliding_window_margin_factor', 0.1, float_desc("sliding_window_margin_factor"))
         self.declare_parameter('sliding_window_minpix', 50, float_desc("sliding_window_minpix"))
 
         # Parameter für edge_detection
@@ -97,7 +97,9 @@ class LaneDetectionNode(Node):
         self.subscription = self.create_subscription(CompressedImage, '/image_raw/compressed', self.image_callback, qos_sensor_data)
 
         # Publisher für Offset (Steuergröße)
-        self.driving_publisher_ = self.create_publisher(Float64, '/lane/center_offset', qos_control_data)
+        self.center_offset_publisher_ = self.create_publisher(Float64, '/lane/center_offset', qos_control_data)
+        self.curvature_publisher_ = self.create_publisher(Float64, '/lane/curvature', qos_control_data)
+
 
         # --- Debug Publisher (unverändert) ---
         self.pub_roi = self.create_publisher(CompressedImage, '/debug/cam/roi', qos_debug_images)
@@ -193,11 +195,7 @@ class LaneDetectionNode(Node):
             if current_params.get('publish_sliding_window') and sliding_window_img is not None:
                 self._publish_image(self.pub_sliding_window, sliding_window_img, timestamp)
 
-            # 6. Fits verfeinern / Fallback
-            if left_fit is None or right_fit is None:
-                  self.lane_obj.get_lane_line_previous_window(self.lane_obj.previous_left_fit, self.lane_obj.previous_right_fit, plot=False)
-
-            # 7. Overlay, Krümmung und Offset berechnen
+            # 6. Overlay, Krümmung und Offset berechnen
             final_annotated_frame = self.frame
             if self.lane_obj.left_fit is not None and self.lane_obj.right_fit is not None:
                 overlay_frame = self.lane_obj.overlay_lane_lines(plot=False)
@@ -205,7 +203,8 @@ class LaneDetectionNode(Node):
                 self.lane_obj.calculate_curvature(print_to_terminal=False, **current_params)
                 # calculate_car_position verwendet center_factor
                 self.lane_obj.calculate_car_position(print_to_terminal=False, **current_params)
-                final_annotated_frame = self.lane_obj.display_curvature_offset(frame=overlay_frame, plot=False)
+                final_annotated_frame, curvature = self.lane_obj.display_curvature_offset(frame=overlay_frame, plot=False)
+                self.curvature_publisher_.publish(Float64(data=float(curvature)))
 
             # 8. Finales annotiertes Bild publishen (falls aktiviert)
             if current_params.get('publish_lane_annotated'):
@@ -215,10 +214,7 @@ class LaneDetectionNode(Node):
             offset_msg = Float64()
             if self.lane_obj.center_offset is not None:
                 offset_msg.data = float(self.lane_obj.center_offset)
-                self.lane_obj.prev_center_offset = self.lane_obj.center_offset
-            else:
-                offset_msg.data = float(self.lane_obj.prev_center_offset)
-            self.driving_publisher_.publish(offset_msg)
+                self.center_offset_publisher_.publish(offset_msg)
 
         except CvBridgeError as e:
              self.get_logger().error(f"CvBridge Error in image_callback: {e}", throttle_duration_sec=10)
