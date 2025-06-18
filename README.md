@@ -49,8 +49,10 @@ You can access the pages below to get a better understanding how the waymo packa
   - [traffic_light_detection_node](https://github.com/Bigfire3/waymo/wiki/Node-Descriptions#traffic_light_detection_node-view-code)
   - [sign_detection_node](https://github.com/Bigfire3/waymo/wiki/Node-Descriptions#sign_detection_node-view-code)
   - [parking_node](https://github.com/Bigfire3/waymo/wiki/Node-Descriptions#parking_node-view-code)
-  - [state_manager_node](https://github.com/Bigfire3/waymo/wiki/Node-Descriptions#state_manager_node-view-code)
   - [gui_debug_node](https://github.com/Bigfire3/waymo/wiki/Node-Descriptions#gui_debug_node-view-code)
   - [keyboard_handler_node](https://github.com/Bigfire3/waymo/wiki/Node-Descriptions#keyboard_handler_nodeview-code)
+  - [speed_governor_node](https://github.com/Bigfire3/waymo/wiki/Node-Descriptions#speed_governor_node-view-code)
+  - [intersection_handling_node](https://github.com/Bigfire3/waymo/wiki/Node-Descriptions#intersection_handling_node-view-code)
+  - [state_manager_node](https://github.com/Bigfire3/waymo/wiki/Node-Descriptions#state_manager_node-view-code)
 
 - ### [Parameter & Key Constants](https://github.com/Bigfire3/waymo/wiki/Parameter-&-Key-Constants)
