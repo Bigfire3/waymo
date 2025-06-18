@@ -28,14 +28,13 @@ class GuiDebugNode(Node):
         self.debug_topics = OrderedDict([
             ('roi', '/debug/cam/roi'),
             ('lane_annotated', '/debug/cam/lane_annotated'),
-            ('raw_markings', '/debug/cam/raw_markings'),
-            ('warped', '/debug/cam/warped'),
-            ('filtered_warped', '/debug/cam/filtered_warped'),
+            ('closed_edges', '/debug/cam/closed_edges'),
+            ('filled_areas', '/debug/cam/filled_areas'),
+            ('thickness_filtered', '/debug/cam/thickness_filtered'),
             ('sliding_window', '/debug/cam/sliding_window'),
             ('traffic_light_mask', '/debug/cam/traffic_mask'),
             ('traffic_light_overlay', '/debug/cam/traffic_overlay'),
-            ('sign_detection_template_matching', '/debug/cam/template_matching'),
-            ('sign_detection_binary', '/debug/cam/binary_sign'),
+            ('sign_detection_binary_with_box', '/debug/cam/binary_sign_boxed'),
         ])
         self.image_msg_type = CompressedImage
         self.gui_window_name = 'Waymo Debug Canvas'
@@ -78,8 +77,8 @@ class GuiDebugNode(Node):
         canvas_update_period = 0.1
         self.canvas_timer = self.create_timer(canvas_update_period, self.update_canvas)
 
-        self.get_logger().info(f"GuiDebugNode gestartet. Drücke 'd' im Keyboard Handler, um das Debug-Canvas anzuzeigen.")
-        self.get_logger().info(f"Skalierungsfaktor: {self.get_parameter('canvas_scale_factor').value}")
+        # self.get_logger().info(f"GuiDebugNode gestartet. Drücke 'd' im Keyboard Handler, um das Debug-Canvas anzuzeigen.")
+        # self.get_logger().info(f"Skalierungsfaktor: {self.get_parameter('canvas_scale_factor').value}")
         self.get_logger().info(f"Robot Status: {self.current_robot_state}")
 
 

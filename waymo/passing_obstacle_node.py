@@ -16,7 +16,8 @@ from scipy.spatial.transform import Rotation as R
 LINEAR_SPEED = 0.15
 ANGULAR_SPEED = 0.8
 SIDEWAYS_DISTANCE = 0.28
-TURN_ANGLE_90_DEG = math.pi / 2
+TURN_ANGLE_90_DEG = math.radians(90.0) # 90 Grad in Bogenmaß
+RECOMMENDED_SPEED_TOPIC = '/robot/recommended_speed'
 
 # --- SCAN-WINKEL (POSITIV - wie in deinem Code) ---
 SIDE_SCAN_ANGLE_MIN_DEG = 70.0 # Grad
@@ -25,12 +26,13 @@ SIDE_SCAN_ANGLE_MIN = math.radians(SIDE_SCAN_ANGLE_MIN_DEG)
 SIDE_SCAN_ANGLE_MAX = math.radians(SIDE_SCAN_ANGLE_MAX_DEG)
 
 # --- Abstandsschwellenwert (wie in deinem Code) ---
-SIDE_SCAN_CLEAR_DISTANCE = 0.40 # Meter
+SIDE_SCAN_CLEAR_DISTANCE = 0.4 # Meter
 
 # --- Wait Duration (wie in deinem Code) ---
 WAIT_DURATION_BEFORE_CHECK = 0.0 # Sekunden
+DRIVE_DURATION_BEFORE_SIDE_CHECK = 0.5 # Sekunden
 
-GOAL_TOLERANCE_ANGLE = 0.05
+GOAL_TOLERANCE_ANGLE = math.radians(2.0) # 0.05 rad = 2.86 Grad
 MOVE_DURATION_SIDEWAYS = SIDEWAYS_DISTANCE / LINEAR_SPEED
 LOG_THROTTLE_DURATION = 1.0 # Wird nicht mehr gebraucht ohne Logs
 MAX_ANGULAR_Z_PASSING = 0.8
@@ -45,6 +47,8 @@ class PassingObstacleNode(rclpy.node.Node):
     def __init__(self):
         super().__init__('passing_obstacle_node')
 
+        self.declare_parameter('fallback_passing_speed', 0.1)
+
         self.maneuver_state = ManeuverState.IDLE
         self.current_yaw = 0.0
         self.start_yaw = 0.0
@@ -55,6 +59,8 @@ class PassingObstacleNode(rclpy.node.Node):
         self.maneuver_active = False
         # self.last_log_time = 0.0 # Nicht mehr gebraucht
         self.current_center_offset = 0.0
+
+        self.recommended_speed = self.get_parameter('fallback_passing_speed').value
 
         # QoS Profile (Gemischt)
         qos_sensor = QoSProfile(
@@ -72,6 +78,8 @@ class PassingObstacleNode(rclpy.node.Node):
         self.state_subscriber = self.create_subscription(String, '/robot/state', self.robot_state_callback, qos_reliable)
         self.offset_subscription = self.create_subscription(Float64,'/lane/center_offset',self.lane_offset_callback, qos_sensor)
 
+        self.recommended_speed_subscriber = self.create_subscription(Float64, RECOMMENDED_SPEED_TOPIC, self.recommended_speed_callback, qos_reliable)
+
         # Publishers
         self.cmd_vel_publisher = self.create_publisher(Twist, '/cmd_vel', qos_reliable)
         self.passed_publisher = self.create_publisher(Bool, '/obstacle/passed', qos_reliable)
@@ -81,6 +89,9 @@ class PassingObstacleNode(rclpy.node.Node):
 
         # Initiale Logs entfernt
 
+    def recommended_speed_callback(self, msg: Float64):
+        self.recommended_speed = msg.data
+    
     def odom_callback(self, msg: Odometry):
         orientation_q = msg.pose.pose.orientation
         orientation_list = [orientation_q.x, orientation_q.y, orientation_q.z, orientation_q.w]
@@ -160,10 +171,13 @@ class PassingObstacleNode(rclpy.node.Node):
         elif self.maneuver_state == ManeuverState.CHECKING_SIDE:
             angular_z = self.current_center_offset
             angular_z = np.clip(angular_z, -MAX_ANGULAR_Z_PASSING, MAX_ANGULAR_Z_PASSING)
-            self.move_robot(LINEAR_SPEED, angular_z) # Lane Following
-            if self.side_is_clear:
-                self.stop_robot(); self.maneuver_state = ManeuverState.TURNING_RIGHT_2
-                self.start_yaw = self.current_yaw; self.target_yaw = self.normalize_angle(self.start_yaw - TURN_ANGLE_90_DEG)
+            if current_time - self.wait_start_time < DRIVE_DURATION_BEFORE_SIDE_CHECK:
+                self.move_robot(self.recommended_speed, angular_z)
+            else:
+                self.move_robot(self.recommended_speed, angular_z)
+                if self.side_is_clear:
+                    self.stop_robot(); self.maneuver_state = ManeuverState.TURNING_RIGHT_2
+                    self.start_yaw = self.current_yaw; self.target_yaw = self.normalize_angle(self.start_yaw - TURN_ANGLE_90_DEG)
         elif self.maneuver_state == ManeuverState.TURNING_RIGHT_2:
              if self.turn_to_target(self.target_yaw, -ANGULAR_SPEED): self.maneuver_state = ManeuverState.MOVING_SIDEWAYS_2; self.start_time = current_time
         elif self.maneuver_state == ManeuverState.MOVING_SIDEWAYS_2:
@@ -218,8 +232,9 @@ def main(args=None):
     except KeyboardInterrupt: pass # Log entfernt
     except Exception as e:
         # Log to stderr instead of ROS logger
-        print(f"Unhandled exception in PassingObstacleNode: {e}", file=sys.stderr); traceback.print_exc()
+        # print(f"Unhandled exception in PassingObstacleNode: {e}", file=sys.stderr); traceback.print_exc()
         # Error Log entfernt
+        pass
     finally:
         if node is not None: node.destroy_node()
         if rclpy.ok(): rclpy.shutdown()

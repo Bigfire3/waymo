@@ -62,8 +62,8 @@ class TrafficLightDetector(Node):
         self.declare_parameter('hsv_upper_s', 255, int_desc("Upper Saturation (0-255)"))
         self.declare_parameter('hsv_upper_v', 255, int_desc("Upper Value (0-255)"))     # Oberen Wert evtl. anpassen
         # Blob Area
-        self.declare_parameter('min_blob_area', 90, int_area_desc("Minimum Blob Area (pixels)")) # Angepasster Startwert
-        self.declare_parameter('max_blob_area', 500, int_area_desc("Maximum Blob Area (pixels)"))# Deutlich erhöht
+        self.declare_parameter('min_blob_area', 50, int_area_desc("Minimum Blob Area (pixels)")) # Angepasster Startwert
+        self.declare_parameter('max_blob_area', 250, int_area_desc("Maximum Blob Area (pixels)"))# Deutlich erhöht
         # ROI
         self.declare_parameter('roi_crop_factor_h', 0.6, float_desc("ROI Crop Factor Height (0.1-1.0)", min_val=0.1, max_val=1.0, step = 0.01))
 
@@ -101,9 +101,11 @@ class TrafficLightDetector(Node):
              msg.header.stamp = timestamp
              publisher.publish(msg)
         except CvBridgeError as e:
-              self.get_logger().error(f"CvBridge Fehler beim Publishen auf '{publisher.topic}': {e}", throttle_duration_sec=5)
+            pass
+            #   self.get_logger().error(f"CvBridge Fehler beim Publishen auf '{publisher.topic}': {e}", throttle_duration_sec=5)
         except Exception as e:
-              self.get_logger().error(f"Allgemeiner Fehler beim Publishen auf '{publisher.topic}': {e}", throttle_duration_sec=5)
+            pass
+            #   self.get_logger().error(f"Allgemeiner Fehler beim Publishen auf '{publisher.topic}': {e}", throttle_duration_sec=5)
 
     def image_callback(self, msg):
         try:
@@ -139,8 +141,9 @@ class TrafficLightDetector(Node):
             self.publisher_.publish(Bool(data=not detected))
 
         except Exception as e:
-             self.get_logger().error(f"ERROR in image_callback: {e}", throttle_duration_sec=10)
-             self.get_logger().error(traceback.format_exc())
+            pass
+            #  self.get_logger().error(f"ERROR in image_callback: {e}", throttle_duration_sec=10)
+            #  self.get_logger().error(traceback.format_exc())
 
     def detect_target_color(self, frame):
         """Erkennt Rot robust über zwei HSV-Bereiche und filtert nach Blob-Größe."""
@@ -207,10 +210,12 @@ class TrafficLightDetector(Node):
                         # break # Nicht breaken, um alle gültigen Blobs in filtered_mask zu haben
 
         except cv2.error as cv_err:
-             self.get_logger().error(f"OpenCV error in detect_target_color: {cv_err}", throttle_duration_sec=10)
+             pass
+            #  self.get_logger().error(f"OpenCV error in detect_target_color: {cv_err}", throttle_duration_sec=10)
         except Exception as e:
-             self.get_logger().error(f"Error in detect_target_color: {e}", throttle_duration_sec=10)
-             self.get_logger().error(traceback.format_exc())
+            pass
+            #  self.get_logger().error(f"Error in detect_target_color: {e}", throttle_duration_sec=10)
+            #  self.get_logger().error(traceback.format_exc())
 
         # Gib die *gefilterte* Maske zurück (nur Blobs der richtigen Größe)
         # oder final_mask, wenn du alle erkannten roten Bereiche vor dem Größenfilter sehen willst.
@@ -231,9 +236,10 @@ def main(args=None):
     except KeyboardInterrupt:
         pass
     except Exception as e:
-         # Logge Fehler, bevor Node zerstört wird
-         if node: node.get_logger().error(f"FATAL ERROR [{node_name_for_log}] in main: {e}\n{traceback.format_exc()}")
-         else: print(f"FATAL ERROR [{node_name_for_log}] vor Node-Init: {e}\n{traceback.format_exc()}", file=sys.stderr)
+        pass
+        # Logge Fehler, bevor Node zerstört wird
+        #  if node: node.get_logger().error(f"FATAL ERROR [{node_name_for_log}] in main: {e}\n{traceback.format_exc()}")
+        #  else: print(f"FATAL ERROR [{node_name_for_log}] vor Node-Init: {e}\n{traceback.format_exc()}", file=sys.stderr)
     finally:
         if node is not None:
             node.destroy_node()
