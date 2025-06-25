@@ -45,8 +45,8 @@ SPOT_SCAN_ANGLE_MAX_DEG_WIDE = 110.0
 SPOT_SCAN_ANGLE_MIN_RAD_WIDE = math.radians(SPOT_SCAN_ANGLE_MIN_DEG_WIDE)
 SPOT_SCAN_ANGLE_MAX_RAD_WIDE = math.radians(SPOT_SCAN_ANGLE_MAX_DEG_WIDE)
 
-SPOT_SCAN_ANGLE_MIN_DEG_MID = 60.0
-SPOT_SCAN_ANGLE_MAX_DEG_MID = 120.0
+SPOT_SCAN_ANGLE_MIN_DEG_MID = 63.0
+SPOT_SCAN_ANGLE_MAX_DEG_MID = 123.0
 SPOT_SCAN_ANGLE_MIN_RAD_MID = math.radians(SPOT_SCAN_ANGLE_MIN_DEG_MID)
 SPOT_SCAN_ANGLE_MAX_RAD_MID = math.radians(SPOT_SCAN_ANGLE_MAX_DEG_MID)
 
@@ -56,9 +56,9 @@ SPOT_SCAN_ANGLE_MIN_RAD_NARROW = math.radians(SPOT_SCAN_ANGLE_MIN_DEG_NARROW)
 SPOT_SCAN_ANGLE_MAX_RAD_NARROW = math.radians(SPOT_SCAN_ANGLE_MAX_DEG_NARROW)
 
 
-PARKING_SPOT_CLEAR_DISTANCE_WIDE = 0.4 # Weite Distanz, um zu prüfen, ob eine Parklücke frei ist
+PARKING_SPOT_CLEAR_DISTANCE_WIDE = 0.41 # Weite Distanz, um zu prüfen, ob eine Parklücke frei ist
 PARKING_SPOT_CLEAR_DISTANCE_MID = 0.30 # Mittlere Distanz für Parklückenprüfung
-PARKING_SPOT_CLEAR_DISTANCE_NARROW = 0.23 # Enge Distanz für Parklückenprüfung
+PARKING_SPOT_CLEAR_DISTANCE_NARROW = 0.22 # Enge Distanz für Parklückenprüfung
 
 # Zeit- und Distanzparameter (Odometrie basiert)
 INITIAL_STOP_DURATION = 0.0 # Kurzer Stopp nach Schilderkennung (kann beibehalten werden)
@@ -72,7 +72,7 @@ GOAL_TOLERANCE_ANGLE_RAD = math.radians(2.0) # Toleranz für Drehmanöver
 
 # Neue Odometrie-basierte Distanzen
 DISTANCE_AFTER_INITIAL_SIGN = 0.49  # Meter, 51cm nach dem Schild
-DISTANCE_BETWEEN_SPOTS = 0.33       # Meter, 33cm von Parklücke zu Parklücke
+DISTANCE_BETWEEN_SPOTS = 0.32       # Meter, 33cm von Parklücke zu Parklücke
 ODOM_DISTANCE_TOLERANCE = 0.01      # Meter, Toleranz für das Erreichen der Zieldistanz (2cm)
 
 # Timeouts für Odometrie-basierte Fahrten
