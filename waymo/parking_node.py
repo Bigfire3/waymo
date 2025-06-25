@@ -40,12 +40,25 @@ INITIAL_SCAN_ANGLE_MIN_RAD = math.radians(INITIAL_SCAN_ANGLE_MIN_DEG)
 INITIAL_SCAN_ANGLE_MAX_RAD = math.radians(INITIAL_SCAN_ANGLE_MAX_DEG)
 INITIAL_SPOT_DETECTION_DISTANCE = 0.25 # Distanz, um das initiale Schild zu erkennen
 
-SPOT_SCAN_ANGLE_MIN_DEG = 70.0
-SPOT_SCAN_ANGLE_MAX_DEG = 110.0
-SPOT_SCAN_ANGLE_MIN_RAD = math.radians(SPOT_SCAN_ANGLE_MIN_DEG)
-SPOT_SCAN_ANGLE_MAX_RAD = math.radians(SPOT_SCAN_ANGLE_MAX_DEG)
+SPOT_SCAN_ANGLE_MIN_DEG_WIDE = 70.0
+SPOT_SCAN_ANGLE_MAX_DEG_WIDE = 110.0
+SPOT_SCAN_ANGLE_MIN_RAD_WIDE = math.radians(SPOT_SCAN_ANGLE_MIN_DEG_WIDE)
+SPOT_SCAN_ANGLE_MAX_RAD_WIDE = math.radians(SPOT_SCAN_ANGLE_MAX_DEG_WIDE)
 
-PARKING_SPOT_CLEAR_DISTANCE = 0.4 # Distanz, um zu prüfen, ob eine Parklücke frei ist
+SPOT_SCAN_ANGLE_MIN_DEG_MID = 60.0
+SPOT_SCAN_ANGLE_MAX_DEG_MID = 120.0
+SPOT_SCAN_ANGLE_MIN_RAD_MID = math.radians(SPOT_SCAN_ANGLE_MIN_DEG_MID)
+SPOT_SCAN_ANGLE_MAX_RAD_MID = math.radians(SPOT_SCAN_ANGLE_MAX_DEG_MID)
+
+SPOT_SCAN_ANGLE_MIN_DEG_NARROW = 50.0
+SPOT_SCAN_ANGLE_MAX_DEG_NARROW = 130.0
+SPOT_SCAN_ANGLE_MIN_RAD_NARROW = math.radians(SPOT_SCAN_ANGLE_MIN_DEG_NARROW)
+SPOT_SCAN_ANGLE_MAX_RAD_NARROW = math.radians(SPOT_SCAN_ANGLE_MAX_DEG_NARROW)
+
+
+PARKING_SPOT_CLEAR_DISTANCE_WIDE = 0.4 # Weite Distanz, um zu prüfen, ob eine Parklücke frei ist
+PARKING_SPOT_CLEAR_DISTANCE_MID = 0.30 # Mittlere Distanz für Parklückenprüfung
+PARKING_SPOT_CLEAR_DISTANCE_NARROW = 0.23 # Enge Distanz für Parklückenprüfung
 
 # Zeit- und Distanzparameter (Odometrie basiert)
 INITIAL_STOP_DURATION = 0.0 # Kurzer Stopp nach Schilderkennung (kann beibehalten werden)
@@ -59,7 +72,7 @@ GOAL_TOLERANCE_ANGLE_RAD = math.radians(2.0) # Toleranz für Drehmanöver
 
 # Neue Odometrie-basierte Distanzen
 DISTANCE_AFTER_INITIAL_SIGN = 0.49  # Meter, 51cm nach dem Schild
-DISTANCE_BETWEEN_SPOTS = 0.34       # Meter, 33cm von Parklücke zu Parklücke
+DISTANCE_BETWEEN_SPOTS = 0.33       # Meter, 33cm von Parklücke zu Parklücke
 ODOM_DISTANCE_TOLERANCE = 0.01      # Meter, Toleranz für das Erreichen der Zieldistanz (2cm)
 
 # Timeouts für Odometrie-basierte Fahrten
@@ -201,10 +214,16 @@ class ParkingNode(Node):
 
         # Logik für das Scannen der Parklücke
         elif self.parking_phase == ParkingPhase.SCANNING_FOR_SPOT:
-            is_spot_clear = not self.check_laser_zone(
-                msg, SPOT_SCAN_ANGLE_MIN_RAD, SPOT_SCAN_ANGLE_MAX_RAD, PARKING_SPOT_CLEAR_DISTANCE
+            is_spot_clear_wide = not self.check_laser_zone(
+                msg, SPOT_SCAN_ANGLE_MIN_RAD_WIDE, SPOT_SCAN_ANGLE_MAX_RAD_WIDE, PARKING_SPOT_CLEAR_DISTANCE_WIDE
             )
-            if is_spot_clear:
+            is_spot_clear_mid = not self.check_laser_zone(
+                msg, SPOT_SCAN_ANGLE_MIN_RAD_MID, SPOT_SCAN_ANGLE_MAX_RAD_MID, PARKING_SPOT_CLEAR_DISTANCE_MID
+            )
+            is_spot_clear_narrow = not self.check_laser_zone(
+                msg, SPOT_SCAN_ANGLE_MIN_RAD_NARROW, SPOT_SCAN_ANGLE_MAX_RAD_NARROW, PARKING_SPOT_CLEAR_DISTANCE_NARROW
+            )
+            if is_spot_clear_wide and is_spot_clear_mid and is_spot_clear_narrow:
                 # self.get_logger().info(f"Parklücke (Versuch {self.parking_attempts_count + 1}) ist frei.")
                 self.change_parking_phase(ParkingPhase.TURNING_RIGHT_FOR_PARKING)
             else:
