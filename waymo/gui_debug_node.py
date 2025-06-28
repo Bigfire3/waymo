@@ -2,17 +2,14 @@
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
-
-# Benötigte ROS-Nachrichtentypen und Tools
-from sensor_msgs.msg import CompressedImage # Für Debug-Bilder
-from std_msgs.msg import String             # Für Statusnachrichten und Keyboard-Befehle
+from sensor_msgs.msg import CompressedImage
+from std_msgs.msg import String
 import cv2
 from cv_bridge import CvBridge, CvBridgeError
 import numpy as np
 import sys
 import traceback
-from collections import OrderedDict # Um die Reihenfolge der Bilder beizubehalten
-# NEU für Parameter-Deskriptoren
+from collections import OrderedDict
 from rcl_interfaces.msg import ParameterDescriptor, FloatingPointRange
 from rclpy.parameter import ParameterType
 
@@ -42,11 +39,10 @@ class GuiDebugNode(Node):
         self.canvas_cols = 5
         self.placeholder_color = (40, 40, 40)
         self.placeholder_text_color = (9, 106, 206)
-        # NEU: Feste Kachelgröße (basierend auf deiner Angabe 320x240)
+
         self.tile_width = 320
         self.tile_height = 240
 
-        # NEU: Parameter für die Skalierung des gesamten Canvas
         scale_factor_descriptor = ParameterDescriptor(
             type=ParameterType.PARAMETER_DOUBLE,
             description='Skalierungsfaktor für das gesamte Debug-Canvas (0.1 bis 2.0)',
@@ -58,7 +54,6 @@ class GuiDebugNode(Node):
         self.current_robot_state = "WAYMO_STARTED"
         self.canvas_visible = False
         self.last_images = {name: None for name in self.debug_topics.keys()}
-        # self.last_canvas_shape nicht mehr nötig für Vergleich
 
         self.bridge = CvBridge()
         qos_debug_images = QoSProfile(reliability=ReliabilityPolicy.BEST_EFFORT, history=HistoryPolicy.KEEP_LAST, depth=1)
