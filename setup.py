@@ -37,6 +37,7 @@ setup(
             'reflection_filter = waymo.reflection_filter:main',
             'speed_governor_node = waymo.speed_governor_node:main',
             'intersection_handling_node = waymo.intersection_handling_node:main',
+            'image_analysis_debugger_node = waymo.image_analysis_debugger_node:main',
         ],
     },
 )
