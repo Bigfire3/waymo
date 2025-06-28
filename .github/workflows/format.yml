@@ -7,6 +7,9 @@ on:
     paths:
       - 'waymo/**'  # Führt die Action nur aus, wenn sich etwas im waymo-Ordner ändert
 
+permissions:
+  contents: write # Erlaubt das Schreiben in das Repository, um formatierte Dateien zurückzupushen
+
 jobs:
   format:
     runs-on: ubuntu-latest # Verwendet eine aktuelle Ubuntu-Umgebung
