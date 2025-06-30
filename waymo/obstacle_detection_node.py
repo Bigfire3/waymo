@@ -4,13 +4,14 @@ from std_msgs.msg import Bool
 from sensor_msgs.msg import LaserScan
 import math
 
+
 class ObstacleDetectionNode(rclpy.node.Node):
 
     def __init__(self):
         super().__init__("obstacle_detection_node")
 
         self.declare_parameter("distance_to_stop", 0.25)
-        
+
         # The front of the robot is at the +/- 180 degree seam.
         # We scan a 20-degree cone to the left [-180, -160] and to the right [160, 180].
         self.scan_range_left = (-180.0, -165.0)
@@ -48,8 +49,12 @@ class ObstacleDetectionNode(rclpy.node.Node):
             angle_deg = math.degrees(msg.angle_min + i * msg.angle_increment)
 
             # Check if the angle is within the left or right frontal cone
-            in_left_range = self.scan_range_left[0] <= angle_deg <= self.scan_range_left[1]
-            in_right_range = self.scan_range_right[0] <= angle_deg <= self.scan_range_right[1]
+            in_left_range = (
+                self.scan_range_left[0] <= angle_deg <= self.scan_range_left[1]
+            )
+            in_right_range = (
+                self.scan_range_right[0] <= angle_deg <= self.scan_range_right[1]
+            )
 
             if in_left_range or in_right_range:
                 if dist < self.closest_distance:
@@ -57,7 +62,7 @@ class ObstacleDetectionNode(rclpy.node.Node):
 
     def timer_callback(self):
         distance_stop = self.get_parameter("distance_to_stop").value
-        
+
         # Determine if blocked based on the closest distance found in the scan
         # If no obstacle was found, closest_distance remains 'inf'
         is_currently_blocked = self.closest_distance <= distance_stop
@@ -68,9 +73,10 @@ class ObstacleDetectionNode(rclpy.node.Node):
             msg = Bool()
             msg.data = self.blocked
             self.blocked_publisher_.publish(msg)
-        
+
         # is_currently_blocked = False
         # self.blocked = False
+
 
 def main(args=None):
     rclpy.init(args=args)
@@ -84,6 +90,7 @@ def main(args=None):
             node.destroy_node()
         if rclpy.ok():
             rclpy.shutdown()
+
 
 if __name__ == "__main__":
     main()

@@ -66,7 +66,9 @@ SPOT_SCAN_ANGLE_MIN_RAD_NARROW = math.radians(SPOT_SCAN_ANGLE_MIN_DEG_NARROW)
 SPOT_SCAN_ANGLE_MAX_RAD_NARROW = math.radians(SPOT_SCAN_ANGLE_MAX_DEG_NARROW)
 
 
-PARKING_SPOT_CLEAR_DISTANCE_STRAIGHT = 0.38  # Gerade Distanz, um zu prüfen, ob eine Parklücke frei ist
+PARKING_SPOT_CLEAR_DISTANCE_STRAIGHT = (
+    0.38  # Gerade Distanz, um zu prüfen, ob eine Parklücke frei ist
+)
 PARKING_SPOT_CLEAR_DISTANCE_WIDE = (
     0.42  # Weite Distanz, um zu prüfen, ob eine Parklücke frei ist
 )
@@ -132,10 +134,18 @@ class ParkingNode(Node):
         self.declare_parameter("fallback_parking_speed", 0.1)
         self.declare_parameter("max_driving_speed_in_parking_mode", 0.15)
 
-        self.declare_parameter("parking_spot_clear_distance_straight", PARKING_SPOT_CLEAR_DISTANCE_STRAIGHT)
-        self.declare_parameter("parking_spot_clear_distance_wide", PARKING_SPOT_CLEAR_DISTANCE_WIDE)
-        self.declare_parameter("parking_spot_clear_distance_mid", PARKING_SPOT_CLEAR_DISTANCE_MID)
-        self.declare_parameter("parking_spot_clear_distance_narrow", PARKING_SPOT_CLEAR_DISTANCE_NARROW)
+        self.declare_parameter(
+            "parking_spot_clear_distance_straight", PARKING_SPOT_CLEAR_DISTANCE_STRAIGHT
+        )
+        self.declare_parameter(
+            "parking_spot_clear_distance_wide", PARKING_SPOT_CLEAR_DISTANCE_WIDE
+        )
+        self.declare_parameter(
+            "parking_spot_clear_distance_mid", PARKING_SPOT_CLEAR_DISTANCE_MID
+        )
+        self.declare_parameter(
+            "parking_spot_clear_distance_narrow", PARKING_SPOT_CLEAR_DISTANCE_NARROW
+        )
 
         self.current_robot_state_from_manager = ""
         self.parking_phase = ParkingPhase.IDLE
@@ -337,7 +347,13 @@ class ParkingNode(Node):
             if not is_spot_clear_narrow:
                 self.get_logger().info("Parklücke ist nicht frei (ENG).")
 
-            if is_spot_clear_straight and is_spot_clear_wide_right and is_spot_clear_wide_left and is_spot_clear_mid and is_spot_clear_narrow:
+            if (
+                is_spot_clear_straight
+                and is_spot_clear_wide_right
+                and is_spot_clear_wide_left
+                and is_spot_clear_mid
+                and is_spot_clear_narrow
+            ):
                 # self.get_logger().info(f"Parklücke (Versuch {self.parking_attempts_count + 1}) ist frei.")
                 self.change_parking_phase(ParkingPhase.TURNING_RIGHT_FOR_PARKING)
             else:
