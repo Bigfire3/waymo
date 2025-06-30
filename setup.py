@@ -38,6 +38,7 @@ setup(
             'speed_governor_node = waymo.speed_governor_node:main',
             'intersection_handling_node = waymo.intersection_handling_node:main',
             'image_analysis_debugger_node = waymo.image_analysis_debugger_node:main',
+            'laser_scan_debugger_node = waymo.laser_scan_debugger_node:main',
         ],
     },
 )

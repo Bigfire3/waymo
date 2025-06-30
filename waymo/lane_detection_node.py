@@ -410,7 +410,7 @@ class LaneDetectionNode(Node):
             self.get_logger().error(traceback.format_exc())
 
     def destroy_node(self):
-        self.get_logger().info("Shutting down Lane Detection Node.")
+        # self.get_logger().info("Shutting down Lane Detection Node.")
         try:
             cv2.destroyAllWindows()
         except Exception:

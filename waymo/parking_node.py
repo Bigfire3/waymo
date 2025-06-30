@@ -40,13 +40,23 @@ INITIAL_SCAN_ANGLE_MIN_RAD = math.radians(INITIAL_SCAN_ANGLE_MIN_DEG)
 INITIAL_SCAN_ANGLE_MAX_RAD = math.radians(INITIAL_SCAN_ANGLE_MAX_DEG)
 INITIAL_SPOT_DETECTION_DISTANCE = 0.25  # Distanz, um das initiale Schild zu erkennen
 
-SPOT_SCAN_ANGLE_MIN_DEG_WIDE = 70.0
-SPOT_SCAN_ANGLE_MAX_DEG_WIDE = 110.0
-SPOT_SCAN_ANGLE_MIN_RAD_WIDE = math.radians(SPOT_SCAN_ANGLE_MIN_DEG_WIDE)
-SPOT_SCAN_ANGLE_MAX_RAD_WIDE = math.radians(SPOT_SCAN_ANGLE_MAX_DEG_WIDE)
+SPOT_SCAN_ANGLE_MIN_DEG_STRAIGHT = 75.0
+SPOT_SCAN_ANGLE_MAX_DEG_STRAIGHT = 105.0
+SPOT_SCAN_ANGLE_MIN_RAD_STRAIGHT = math.radians(SPOT_SCAN_ANGLE_MAX_DEG_STRAIGHT)
+SPOT_SCAN_ANGLE_MAX_RAD_STRAIGHT = math.radians(SPOT_SCAN_ANGLE_MIN_DEG_STRAIGHT)
 
-SPOT_SCAN_ANGLE_MIN_DEG_MID = 63.0
-SPOT_SCAN_ANGLE_MAX_DEG_MID = 123.0
+SPOT_SCAN_ANGLE_MIN_DEG_WIDE_RIGHT = 70.0
+SPOT_SCAN_ANGLE_MAX_DEG_WIDE_RIGHT = 72.0
+SPOT_SCAN_ANGLE_MIN_RAD_WIDE_RIGHT = math.radians(SPOT_SCAN_ANGLE_MIN_DEG_WIDE_RIGHT)
+SPOT_SCAN_ANGLE_MAX_RAD_WIDE_RIGHT = math.radians(SPOT_SCAN_ANGLE_MAX_DEG_WIDE_RIGHT)
+
+SPOT_SCAN_ANGLE_MIN_DEG_WIDE_LEFT = 108.0
+SPOT_SCAN_ANGLE_MAX_DEG_WIDE_LEFT = 110.0
+SPOT_SCAN_ANGLE_MIN_RAD_WIDE_LEFT = math.radians(SPOT_SCAN_ANGLE_MIN_DEG_WIDE_LEFT)
+SPOT_SCAN_ANGLE_MAX_RAD_WIDE_LEFT = math.radians(SPOT_SCAN_ANGLE_MAX_DEG_WIDE_LEFT)
+
+SPOT_SCAN_ANGLE_MIN_DEG_MID = 60.0
+SPOT_SCAN_ANGLE_MAX_DEG_MID = 120.0
 SPOT_SCAN_ANGLE_MIN_RAD_MID = math.radians(SPOT_SCAN_ANGLE_MIN_DEG_MID)
 SPOT_SCAN_ANGLE_MAX_RAD_MID = math.radians(SPOT_SCAN_ANGLE_MAX_DEG_MID)
 
@@ -56,28 +66,29 @@ SPOT_SCAN_ANGLE_MIN_RAD_NARROW = math.radians(SPOT_SCAN_ANGLE_MIN_DEG_NARROW)
 SPOT_SCAN_ANGLE_MAX_RAD_NARROW = math.radians(SPOT_SCAN_ANGLE_MAX_DEG_NARROW)
 
 
+PARKING_SPOT_CLEAR_DISTANCE_STRAIGHT = 0.37  # Gerade Distanz, um zu prüfen, ob eine Parklücke frei ist
 PARKING_SPOT_CLEAR_DISTANCE_WIDE = (
     0.41  # Weite Distanz, um zu prüfen, ob eine Parklücke frei ist
 )
-PARKING_SPOT_CLEAR_DISTANCE_MID = 0.30  # Mittlere Distanz für Parklückenprüfung
-PARKING_SPOT_CLEAR_DISTANCE_NARROW = 0.22  # Enge Distanz für Parklückenprüfung
+PARKING_SPOT_CLEAR_DISTANCE_MID = 0.29  # Mittlere Distanz für Parklückenprüfung
+PARKING_SPOT_CLEAR_DISTANCE_NARROW = 0.2  # Enge Distanz für Parklückenprüfung
 
 # Zeit- und Distanzparameter (Odometrie basiert)
 INITIAL_STOP_DURATION = (
-    0.0  # Kurzer Stopp nach Schilderkennung (kann beibehalten werden)
+    0.1  # Kurzer Stopp nach Schilderkennung (kann beibehalten werden)
 )
 # DRIVE_TO_FIRST_SPOT_DURATION -> Ersetzt durch DISTANCE_AFTER_INITIAL_SIGN
 # DRIVE_TO_NEXT_SPOT_DURATION -> Ersetzt durch DISTANCE_BETWEEN_SPOTS
-STOP_BEFORE_SCAN_DURATION = 0.0  # Kurzer Stopp vor dem Scannen der Lücke
+STOP_BEFORE_SCAN_DURATION = 0.1  # Kurzer Stopp vor dem Scannen der Lücke
 PARKING_DURATION = 10.0  # Wie lange im Parkplatz gewartet wird
 MOVE_SPOT_DISTANCE = (
     0.26  # Distanz für das Ein- und Ausparken in die Lücke (nicht die Fahrt zur Lücke)
 )
-TURN_ANGLE_90_DEG = math.radians(89.0)  # Korrekturwinkel für 90 Grad Drehungen
-GOAL_TOLERANCE_ANGLE_RAD = math.radians(2.0)  # Toleranz für Drehmanöver
+TURN_ANGLE_90_DEG = math.radians(87.0)  # Korrekturwinkel für 90 Grad Drehungen
+GOAL_TOLERANCE_ANGLE_RAD = math.radians(1.5)  # Toleranz für Drehmanöver
 
 # Neue Odometrie-basierte Distanzen
-DISTANCE_AFTER_INITIAL_SIGN = 0.49  # Meter, 51cm nach dem Schild
+DISTANCE_AFTER_INITIAL_SIGN = 0.45  # Meter, 51cm nach dem Schild
 DISTANCE_BETWEEN_SPOTS = 0.32  # Meter, 33cm von Parklücke zu Parklücke
 ODOM_DISTANCE_TOLERANCE = (
     0.01  # Meter, Toleranz für das Erreichen der Zieldistanz (2cm)
@@ -118,8 +129,14 @@ class ParkingNode(Node):
     def __init__(self):
         super().__init__(NODE_NAME)
 
-        self.declare_parameter("fallback_parking_speed", 0.115)
-        self.declare_parameter("max_driving_speed_in_parking_mode", 0.125)
+        self.declare_parameter("fallback_parking_speed", 0.1)
+        self.declare_parameter("max_driving_speed_in_parking_mode", 0.15)
+
+        self.declare_parameter("parking_spot_clear_distance_straight", PARKING_SPOT_CLEAR_DISTANCE_STRAIGHT)
+        self.declare_parameter("parking_spot_clear_distance_wide", PARKING_SPOT_CLEAR_DISTANCE_WIDE)
+        self.declare_parameter("parking_spot_clear_distance_mid", PARKING_SPOT_CLEAR_DISTANCE_MID)
+        self.declare_parameter("parking_spot_clear_distance_narrow", PARKING_SPOT_CLEAR_DISTANCE_NARROW)
+
         self.current_robot_state_from_manager = ""
         self.parking_phase = ParkingPhase.IDLE
         self.current_center_offset = 0.0
@@ -275,25 +292,52 @@ class ParkingNode(Node):
 
         # Logik für das Scannen der Parklücke
         elif self.parking_phase == ParkingPhase.SCANNING_FOR_SPOT:
-            is_spot_clear_wide = not self.check_laser_zone(
+            is_spot_clear_straight = not self.check_laser_zone(
                 msg,
-                SPOT_SCAN_ANGLE_MIN_RAD_WIDE,
-                SPOT_SCAN_ANGLE_MAX_RAD_WIDE,
-                PARKING_SPOT_CLEAR_DISTANCE_WIDE,
+                SPOT_SCAN_ANGLE_MIN_RAD_STRAIGHT,
+                SPOT_SCAN_ANGLE_MAX_RAD_STRAIGHT,
+                self.get_parameter("parking_spot_clear_distance_straight").value,
             )
+            if not is_spot_clear_straight:
+                self.get_logger().info("Parklücke ist nicht frei (GERADE).")
+
+            is_spot_clear_wide_right = not self.check_laser_zone(
+                msg,
+                SPOT_SCAN_ANGLE_MIN_RAD_WIDE_RIGHT,
+                SPOT_SCAN_ANGLE_MAX_RAD_WIDE_RIGHT,
+                self.get_parameter("parking_spot_clear_distance_wide").value,
+            )
+            if not is_spot_clear_wide_right:
+                self.get_logger().info("Parklücke ist nicht frei (WEIT RECHTS).")
+
+            is_spot_clear_wide_left = not self.check_laser_zone(
+                msg,
+                SPOT_SCAN_ANGLE_MIN_RAD_WIDE_LEFT,
+                SPOT_SCAN_ANGLE_MAX_RAD_WIDE_LEFT,
+                self.get_parameter("parking_spot_clear_distance_wide").value,
+            )
+            if not is_spot_clear_wide_left:
+                self.get_logger().info("Parklücke ist nicht frei (WEIT LINKS).")
+
             is_spot_clear_mid = not self.check_laser_zone(
                 msg,
                 SPOT_SCAN_ANGLE_MIN_RAD_MID,
                 SPOT_SCAN_ANGLE_MAX_RAD_MID,
-                PARKING_SPOT_CLEAR_DISTANCE_MID,
+                self.get_parameter("parking_spot_clear_distance_mid").value,
             )
+            if not is_spot_clear_mid:
+                self.get_logger().info("Parklücke ist nicht frei (MITTEL).")
+
             is_spot_clear_narrow = not self.check_laser_zone(
                 msg,
                 SPOT_SCAN_ANGLE_MIN_RAD_NARROW,
                 SPOT_SCAN_ANGLE_MAX_RAD_NARROW,
-                PARKING_SPOT_CLEAR_DISTANCE_NARROW,
+                self.get_parameter("parking_spot_clear_distance_narrow").value,
             )
-            if is_spot_clear_wide and is_spot_clear_mid and is_spot_clear_narrow:
+            if not is_spot_clear_narrow:
+                self.get_logger().info("Parklücke ist nicht frei (ENG).")
+
+            if is_spot_clear_straight and is_spot_clear_wide_right and is_spot_clear_wide_left and is_spot_clear_mid and is_spot_clear_narrow:
                 # self.get_logger().info(f"Parklücke (Versuch {self.parking_attempts_count + 1}) ist frei.")
                 self.change_parking_phase(ParkingPhase.TURNING_RIGHT_FOR_PARKING)
             else:

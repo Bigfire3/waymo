@@ -55,33 +55,26 @@ NODE_NAME = "intersection_handling_node"
 ) = ("INTERSEC_DRIVING_STRAIGHT", "INTERSEC_TURNING_RIGHT", "INTERSEC_TURNING_LEFT")
 
 # --- Default-Werte ---
-DEFAULT_APPROACH_SPEED = 0.2  # m/s
+DEFAULT_APPROACH_SPEED = 0.15  # m/s
 DEFAULT_STRAIGHT_SPEED_PART1 = 0.2
 DEFAULT_STRAIGHT_SPEED_FINAL = 0.2
 DEFAULT_TURN_FORWARD_SPEED = 0.125
 DEFAULT_TURN_ANGULAR_SPEED_RIGHT = 0.45
 DEFAULT_TURN_ANGULAR_SPEED_LEFT = 0.25
-VISUAL_CORRECTION_ANGULAR_SPEED = 0.2  # Angular speed for visual correction in rad/s
-(
-    DEFAULT_STRAIGHT_DISTANCE_PART1,
-    DEFAULT_STRAIGHT_DISTANCE_FINAL,
-    DEFAULT_POST_TURN_STRAIGHT_DISTANCE,
-) = (0.4, 0.45, 0.1)
-(
-    DEFAULT_SIDE_SIGN_SCAN_TIMEOUT,
-    DEFAULT_WAIT_AT_REFERENCE_DURATION,
-    DEFAULT_PRE_ANALYSIS_WAIT_DURATION,
-) = (10.0, 0.0, 0.1)
-(
-    DEFAULT_FINAL_WAIT_DURATION,
-    DEFAULT_RIGHT_SIDE_SCAN_ANGLE_MIN_DEG,
-    DEFAULT_RIGHT_SIDE_SCAN_ANGLE_MAX_DEG,
-) = (0.0, 88.0, 92.0)
-DEFAULT_RIGHT_SIDE_SCAN_DISTANCE, DEFAULT_TURN_ANGLE_90_DEG = 0.25, math.pi / 2
-DEFAULT_GOAL_TOLERANCE_ANGLE_RAD, DEFAULT_ODOM_DISTANCE_TOLERANCE = (
-    math.radians(1.5),
-    0.01,
-)
+VISUAL_CORRECTION_ANGULAR_SPEED = 0.15  # Angular speed for visual correction in rad/s
+DEFAULT_STRAIGHT_DISTANCE_PART1 = 0.4
+DEFAULT_STRAIGHT_DISTANCE_FINAL = 0.45
+DEFAULT_POST_TURN_STRAIGHT_DISTANCE = 0.1 # Distance to drive straight after a turn
+DEFAULT_SIDE_SIGN_SCAN_TIMEOUT = 7.5
+DEFAULT_WAIT_AT_REFERENCE_DURATION = 0.0
+DEFAULT_PRE_ANALYSIS_WAIT_DURATION = 0.1
+DEFAULT_FINAL_WAIT_DURATION = 0.0
+DEFAULT_RIGHT_SIDE_SCAN_ANGLE_MIN_DEG = 85.0
+DEFAULT_RIGHT_SIDE_SCAN_ANGLE_MAX_DEG = 95.0
+DEFAULT_RIGHT_SIDE_SCAN_DISTANCE = 0.25
+DEFAULT_TURN_ANGLE_90_DEG = math.pi / 2
+DEFAULT_GOAL_TOLERANCE_ANGLE_RAD = math.radians(1.5)
+DEFAULT_ODOM_DISTANCE_TOLERANCE = 0.01
 
 
 class IntersectionPhase(Enum):
@@ -219,7 +212,7 @@ class IntersectionHandlingNode(Node):
             "img_analysis_crop_bottom_percent", 75.0, percent_desc("...")
         )
         self.declare_parameter(
-            "img_analysis_binary_threshold", 128, int_desc("...", max_val=255)
+            "img_analysis_binary_threshold", 140, int_desc("...", max_val=255)
         )
         self.declare_parameter(
             "histogram_valley_threshold", 500, int_desc("...", step=10)
@@ -301,7 +294,7 @@ class IntersectionHandlingNode(Node):
         self.intersection_finished_publisher = self.create_publisher(
             Bool, INTERSECTION_FINISHED_TOPIC, qos_reliable
         )
-        self.control_timer = self.create_timer(0.01, self.run_intersection_maneuver)
+        self.control_timer = self.create_timer(0.005, self.run_intersection_maneuver)
 
     def image_callback(self, msg: CompressedImage):
         if not self.maneuver_active_by_statemgr:
@@ -353,7 +346,7 @@ class IntersectionHandlingNode(Node):
                 self.get_parameter("right_side_scan_angle_max_deg").value,
                 self.get_parameter("right_side_scan_distance").value,
             )
-            if self._check_laser_zone(
+            if self.check_laser_zone(
                 msg, math.radians(angle_min_deg), math.radians(angle_max_deg), dist
             ):
                 self.side_sign_detected_by_laser = True
@@ -642,28 +635,68 @@ class IntersectionHandlingNode(Node):
                 f"Error publishing debug image: {e}", throttle_duration_sec=5
             )
 
-    def _check_laser_zone(self, msg, min_rad, max_rad, dist_thresh) -> bool:
-        if msg.angle_increment <= 0.0:
-            return False
-        try:
-            start_idx, end_idx = max(
-                0, int((min_rad - msg.angle_min) / msg.angle_increment)
-            ), min(
-                len(msg.ranges) - 1,
-                int((max_rad - msg.angle_min) / msg.angle_increment),
+    def check_laser_zone(
+        self,
+        scan_msg: LaserScan,
+        angle_min_rad_target: float,
+        angle_max_rad_target: float,
+        detection_distance: float,
+    ) -> bool:
+        # Stellt sicher, dass angle_increment gültig ist, um Division durch Null oder Endlosschleifen zu vermeiden
+        if scan_msg.angle_increment <= 0.0:
+            self.get_logger().warn(
+                "Ungültiges angle_increment im Laserscan.", throttle_duration_sec=10
             )
-            if start_idx > end_idx:
-                return False
-            for i in range(start_idx, end_idx + 1):
-                if (
-                    not math.isinf(msg.ranges[i])
-                    and not math.isnan(msg.ranges[i])
-                    and msg.range_min <= msg.ranges[i] < dist_thresh
-                ):
-                    return True
-        except (ValueError, IndexError):
             return False
-        return False
+
+        # Berechne den tatsächlichen maximalen Winkel des Scans
+        actual_scan_angle_max_rad = (
+            scan_msg.angle_min + (len(scan_msg.ranges) - 1) * scan_msg.angle_increment
+        )
+
+        # Stelle sicher, dass der Zielbereich innerhalb des Scanbereichs liegt
+        adj_target_min_rad = max(angle_min_rad_target, scan_msg.angle_min)
+        adj_target_max_rad = min(angle_max_rad_target, actual_scan_angle_max_rad)
+
+        # Wenn der angepasste Bereich ungültig ist (min >= max), gibt es keine gültigen Indizes
+        if adj_target_min_rad >= adj_target_max_rad:
+            # self.get_logger().debug(f"Angepasster Scanbereich ungültig: min_rad={adj_target_min_rad}, max_rad={adj_target_max_rad}")
+            return False
+
+        # Konvertiere Winkel in Array-Indizes
+        # Runden auf den nächsten Index oder int() verwenden (abschneiden) kann je nach Anforderung variieren.
+        # Hier verwenden wir int() für den Start und stellen sicher, dass der Endindex nicht überschritten wird.
+        start_index = max(
+            0, int((adj_target_min_rad - scan_msg.angle_min) / scan_msg.angle_increment)
+        )
+        end_index = min(
+            len(scan_msg.ranges) - 1,
+            int((adj_target_max_rad - scan_msg.angle_min) / scan_msg.angle_increment),
+        )
+
+        # Erneute Prüfung, ob die Indizes nach Anpassung und Konvertierung gültig sind
+        if start_index > end_index:
+            # self.get_logger().debug(f"Startindex {start_index} > Endindex {end_index} nach Indexberechnung.")
+            return False
+
+        # self.get_logger().debug(f"Scanning zone from index {start_index} to {end_index} for distance < {detection_distance:.2f}m.")
+        for i in range(start_index, end_index + 1):
+            dist = scan_msg.ranges[i]
+            # Prüfe auf gültige Distanzwerte (nicht unendlich, nicht NaN)
+            # und ob sie innerhalb des gültigen Bereichs des Sensors liegen
+            # und kleiner als die Zieldistanz sind.
+            if (
+                not math.isinf(dist)
+                and not math.isnan(dist)
+                and dist >= scan_msg.range_min
+                and dist <= scan_msg.range_max
+                and dist < detection_distance
+            ):
+                # self.get_logger().debug(f"Hindernis bei Index {i} auf {dist:.2f}m erkannt (Ziel < {detection_distance:.2f}m).")
+                return (
+                    True  # Hindernis im Zielbereich und innerhalb der Distanz gefunden
+                )
+        return False  # Kein Hindernis im Zielbereich gefunden
 
     def change_phase(self, new_phase: IntersectionPhase):
         if self.current_phase == new_phase:

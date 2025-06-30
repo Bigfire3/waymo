@@ -4,20 +4,19 @@ from std_msgs.msg import Bool
 from sensor_msgs.msg import LaserScan
 import math
 
-
-class Obstacle_Detection(rclpy.node.Node):
+class ObstacleDetectionNode(rclpy.node.Node):
 
     def __init__(self):
-        super().__init__("drive_with_scanner")
+        super().__init__("obstacle_detection_node")
 
         self.declare_parameter("distance_to_stop", 0.25)
-        # In radians, angle range -180° to +180° (LIDAR format)
-        self.declare_parameter("angle_range_min", -(0.2) + math.pi)
-        self.declare_parameter("angle_range_max", (0.2) + math.pi)
+        
+        # The front of the robot is at the +/- 180 degree seam.
+        # We scan a 20-degree cone to the left [-180, -160] and to the right [160, 180].
+        self.scan_range_left = (-180.0, -165.0)
+        self.scan_range_right = (165.0, 180.0)
 
-        # Variable for the last sensor reading
         self.closest_distance = float("inf")
-        self.closest_angle = 0.0
         self.blocked = None
 
         qos_policy = rclpy.qos.QoSProfile(
@@ -26,101 +25,65 @@ class Obstacle_Detection(rclpy.node.Node):
             depth=1,
         )
 
-        # Subscribe to laser scan data
         self.subscription = self.create_subscription(
             LaserScan, "scan", self.scanner_callback, qos_profile=qos_policy
         )
-        self.subscription
 
-        # Publisher for current state
         self.blocked_publisher_ = self.create_publisher(
             Bool, "obstacle/blocked", qos_policy
         )
 
-        # Create a timer to periodically update / publish the current state
-        timer_period = 0.2  # seconds
-        self.my_timer = self.create_timer(timer_period, self.timer_callback)
+        timer_period = 0.1
+        self.timer = self.create_timer(timer_period, self.timer_callback)
 
-    def scanner_callback(self, msg):
-        # Find the closest object within the angle range
+    def scanner_callback(self, msg: LaserScan):
+        # Reset closest distance for each new scan
         self.closest_distance = float("inf")
-        self.closest_angle = 0.0
-        # Get the parameters for angle range
-        angle_min = msg.angle_min  # -π (or -180°)
-        angle_max = msg.angle_max  # +π (or +180°)
-        angle_increment = msg.angle_increment
 
-        angle_range_min = (
-            self.get_parameter("angle_range_min").get_parameter_value().double_value
-        )
-        angle_range_max = (
-            self.get_parameter("angle_range_max").get_parameter_value().double_value
-        )
-
-        num_ranges = len(msg.ranges)
-        min_index = max(0, int((angle_range_min - angle_min) / angle_increment))
-        max_index = min(
-            num_ranges - 1, int((angle_range_max - angle_min) / angle_increment)
-        )
-
-        for i in range(min_index, max_index + 1):
-            range_value = msg.ranges[i]
-            if math.isinf(range_value) or range_value == 0.0 or math.isnan(range_value):
+        for i, dist in enumerate(msg.ranges):
+            # Skip invalid range values
+            if math.isinf(dist) or math.isnan(dist) or dist <= 0.0:
                 continue
-            # Calculate the actual angle of this reading
-            angle = angle_min + i * angle_increment
 
-            # Correct the angle by adding π to map it properly (if needed)
-            if angle < 0:  # If angle is negative (left side)
-                angle += (
-                    math.pi
-                )  # Add 180 degrees to map it to the proper front-facing frame
-            else:
-                angle -= math.pi  # Subtract 180 degrees for right-side angles to align
+            angle_deg = math.degrees(msg.angle_min + i * msg.angle_increment)
 
-            # Check if this is the closest obstacle
-            if range_value < self.closest_distance:
-                self.closest_distance = range_value
-                self.closest_angle = angle
+            # Check if the angle is within the left or right frontal cone
+            in_left_range = self.scan_range_left[0] <= angle_deg <= self.scan_range_left[1]
+            in_right_range = self.scan_range_right[0] <= angle_deg <= self.scan_range_right[1]
 
-    # Logic for determining the current state
+            if in_left_range or in_right_range:
+                if dist < self.closest_distance:
+                    self.closest_distance = dist
+
     def timer_callback(self):
-        blocked = self.blocked
-        distance_stop = (
-            self.get_parameter("distance_to_stop").get_parameter_value().double_value
-        )
+        distance_stop = self.get_parameter("distance_to_stop").value
+        
+        # Determine if blocked based on the closest distance found in the scan
+        # If no obstacle was found, closest_distance remains 'inf'
+        is_currently_blocked = self.closest_distance <= distance_stop
 
-        # If the closest object is too close, stop
-        if self.closest_distance <= distance_stop:
-            blocked = True
-        else:
-            blocked = False
-
-        if self.blocked == blocked:
-            return
-
-        msg = Bool()
-        msg.data = blocked
-        self.blocked_publisher_.publish(msg)
-
-    def destroy_node(self):
-        # self.get_logger().info("Destroying Obstacle Detection Node...")
-        super().destroy_node()
-
+        # Publish only if the state changes
+        if self.blocked != is_currently_blocked:
+            self.blocked = is_currently_blocked
+            msg = Bool()
+            msg.data = self.blocked
+            self.blocked_publisher_.publish(msg)
+        
+        # is_currently_blocked = False
+        # self.blocked = False
 
 def main(args=None):
     rclpy.init(args=args)
-    node = Obstacle_Detection()
+    node = ObstacleDetectionNode()
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
         pass
     finally:
-        # Clean up
-        node.destroy_node()
+        if node:
+            node.destroy_node()
         if rclpy.ok():
             rclpy.shutdown()
-
 
 if __name__ == "__main__":
     main()

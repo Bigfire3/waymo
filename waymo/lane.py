@@ -236,6 +236,7 @@ class Lane:
 
     def display_curvature_offset(self, frame=None, plot=False):
         image_copy = frame.copy() if frame is not None else self.orig_frame.copy()
+        avg_curve = None
         h, w = image_copy.shape[:2]
         font_scale = float(0.6 * w / 640)
         thickness = max(1, int(2 * w / 640))
