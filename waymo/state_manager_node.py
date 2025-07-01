@@ -180,6 +180,11 @@ class StateMachine(rclpy.node.Node):
         if self.manual_pause_active:
             return
 
+    def obstacle_detection_callback(self, msg: Bool):
+        if self.manual_pause_active:
+            return
+        self.obstacle_is_blocking = msg.data
+
     def lane_detection_callback(self, msg: Float64):
         self.center_offset = msg.data
 
