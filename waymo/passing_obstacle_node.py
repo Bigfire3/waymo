@@ -53,7 +53,6 @@ class ManeuverState:
 
 
 class PassingObstacleNode(rclpy.node.Node):
-
     def __init__(self):
         super().__init__("passing_obstacle_node")
 
@@ -69,6 +68,7 @@ class PassingObstacleNode(rclpy.node.Node):
         self.maneuver_active = False
         # self.last_log_time = 0.0 # Nicht mehr gebraucht
         self.current_center_offset = 0.0
+        self.current_state = "STATE_STOPPED_AT_TRAFFIC_LIGHT"  # Startwert
 
         self.recommended_speed = self.get_parameter("fallback_passing_speed").value
 
@@ -120,6 +120,8 @@ class PassingObstacleNode(rclpy.node.Node):
         self.recommended_speed = msg.data
 
     def odom_callback(self, msg: Odometry):
+        if not self.maneuver_active:
+            return
         orientation_q = msg.pose.pose.orientation
         orientation_list = [
             orientation_q.x,
@@ -192,9 +194,11 @@ class PassingObstacleNode(rclpy.node.Node):
 
     def robot_state_callback(self, msg: String):
         """Verarbeitet Zustandsänderungen vom State Manager."""
-        new_state = msg.data
-        if new_state == "PASSING_OBSTACLE" and not self.maneuver_active:
-            # Info Log entfernt
+        self.current_state = msg.data
+        new_maneuver_active = self.current_state == "PASSING_OBSTACLE"
+
+        if new_maneuver_active and not self.maneuver_active:
+            # Manöver wird gestartet
             self.maneuver_active = True
             self.maneuver_state = ManeuverState.TURNING_LEFT_1
             passed_msg = Bool()
@@ -202,18 +206,16 @@ class PassingObstacleNode(rclpy.node.Node):
             self.passed_publisher.publish(passed_msg)
             self.start_yaw = self.current_yaw
             self.target_yaw = self.normalize_angle(self.start_yaw + TURN_ANGLE_90_DEG)
-            # Info Log entfernt
-        elif new_state != "PASSING_OBSTACLE" and self.maneuver_active:
-            # Warn Log entfernt
+        elif not new_maneuver_active and self.maneuver_active:
+            # Manöver wird abgebrochen
             self.reset_maneuver()
 
     def run_maneuver(self):
         """Hauptlogik der Zustandsmaschine."""
-        if not self.maneuver_active or self.maneuver_state == ManeuverState.IDLE:
-            if self.maneuver_state == ManeuverState.IDLE:
-                self.stop_robot()
+        if not self.maneuver_active:
             return
-        current_time = time.time()  # state_changed nicht mehr nötig
+
+        current_time = time.time()
 
         # --- Zustandsmaschine (ohne Logs) ---
         if self.maneuver_state == ManeuverState.TURNING_LEFT_1:
@@ -238,7 +240,6 @@ class PassingObstacleNode(rclpy.node.Node):
             if current_time - self.wait_start_time >= WAIT_DURATION_BEFORE_CHECK:
                 self.maneuver_state = ManeuverState.CHECKING_SIDE
                 self.side_is_clear = False
-                # self.last_log_time = 0.0
         elif self.maneuver_state == ManeuverState.CHECKING_SIDE:
             angular_z = self.current_center_offset
             angular_z = np.clip(

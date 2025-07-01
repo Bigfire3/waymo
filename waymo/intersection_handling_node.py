@@ -294,7 +294,7 @@ class IntersectionHandlingNode(Node):
         self.intersection_finished_publisher = self.create_publisher(
             Bool, INTERSECTION_FINISHED_TOPIC, qos_reliable
         )
-        self.control_timer = self.create_timer(0.005, self.run_intersection_maneuver)
+        self.control_timer = self.create_timer(0.02, self.run_intersection_maneuver)
 
     def image_callback(self, msg: CompressedImage):
         if not self.maneuver_active_by_statemgr:
@@ -322,6 +322,8 @@ class IntersectionHandlingNode(Node):
         self.approach_speed = 0.2  # Temporarily set to a fixed value for testing
 
     def odom_callback(self, msg: Odometry):
+        if not self.maneuver_active_by_statemgr:
+            return
         self.current_pos_x, self.current_pos_y = (
             msg.pose.pose.position.x,
             msg.pose.pose.position.y,
@@ -335,6 +337,8 @@ class IntersectionHandlingNode(Node):
             pass
 
     def scan_callback(self, msg: LaserScan):
+        if not self.maneuver_active_by_statemgr:
+            return
         if (
             self.current_phase != IntersectionPhase.DRIVING_TO_SIDE_SIGN_REFERENCE
             or self.side_sign_detected_by_laser
@@ -377,6 +381,8 @@ class IntersectionHandlingNode(Node):
             self.change_phase(IntersectionPhase.IDLE)
 
     def center_offset_callback(self, msg: Float64):
+        if not self.maneuver_active_by_statemgr:
+            return
         self.current_center_offset = msg.data
 
     def run_intersection_maneuver(self):

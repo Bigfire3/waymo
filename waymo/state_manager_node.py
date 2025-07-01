@@ -107,7 +107,7 @@ class StateMachine(rclpy.node.Node):
         )
         self.twist_publisher_ = self.create_publisher(Twist, "cmd_vel", qos_reliable)
 
-        control_loop_period = 0.005
+        control_loop_period = 0.02
         self.control_timer = self.create_timer(
             control_loop_period, self.control_loop_callback
         )
@@ -222,6 +222,98 @@ class StateMachine(rclpy.node.Node):
                 )
                 self.state = STATE_STOPPED_AT_OBSTACLE  # Nach manueller Pause in STOPPED_AT_OBSTACLE zurückkehren
 
+    def toggle_manual_pause(self, toggle_command):
+        if not self.manual_pause_active:
+            self.manual_pause_active = True
+            self.send_cmd_vel(0.0, 0.0)  # Sofort anhalten
+            pause_state_msg = String()
+            pause_state_msg.data = STATE_MANUAL_PAUSE
+            try:
+                if rclpy.ok() and self.context.ok():
+                    self.state_publisher_.publish(pause_state_msg)
+            except Exception:
+                pass
+        else:
+            if toggle_command == "toggle_pause":
+                self.manual_pause_active = False
+            elif toggle_command == "toggle_lane":
+                self.manual_pause_active = False
+                self.initial_traffic_light_check_done = True  # Damit die Ampelphase nicht erneut geprüft wird und wir direkt in FOLLOW_LANE gehen
+                self.obstacle_is_blocking = False  # Hindernisstatus zurücksetzen
+                self.obstacle_just_passed = (
+                    False  # Reset, falls wir gerade in der Umfahrung waren
+                )
+                self.parking_sign_visually_detected = (
+                    False  # Reset, falls wir gerade parken wollten
+                )
+                self.parking_maneuver_finished = (
+                    False  # Reset, falls wir gerade parken wollten
+                )
+                self.straight_sign_visually_detected = False
+                self.right_sign_visually_detected = False
+                self.left_sign_visually_detected = False
+                self.intersection_maneuver_finished = False
+                self.state = STATE_FOLLOW_LANE  # Nach manueller Pause in FOLLOW_LANE zurückkehren
+            elif toggle_command == "toggle_parking":
+                self.manual_pause_active = False
+                self.initial_traffic_light_check_done = True
+                self.obstacle_is_blocking = False
+                self.obstacle_just_passed = False
+                self.parking_sign_visually_detected = (
+                    True  # Setze Flag, um in PARKING zu wechseln
+                )
+                self.parking_maneuver_finished = (
+                    False  # Reset, da wir jetzt parken wollen
+                )
+                self.straight_sign_visually_detected = False
+                self.right_sign_visually_detected = False
+                self.left_sign_visually_detected = False
+                self.intersection_maneuver_finished = False
+                self.state = STATE_PARKING  # Nach manueller Pause in PARKING wechseln
+            elif toggle_command == "toggle_traffic_light":
+                self.manual_pause_active = False
+                self.traffic_light_is_red = (
+                    True  # Setze Ampelstatus zurück, damit sie erneut geprüft wird
+                )
+                self.initial_traffic_light_check_done = (
+                    False  # Ampelphase zurücksetzen, damit sie erneut geprüft wird
+                )
+                self.obstacle_is_blocking = False  # Reset Hindernisstatus
+                self.obstacle_just_passed = (
+                    False  # Reset, falls wir gerade in der Umfahrung waren
+                )
+                self.parking_sign_visually_detected = (
+                    False  # Reset, falls wir gerade parken wollten
+                )
+                self.parking_maneuver_finished = (
+                    False  # Reset, falls wir gerade parken wollten
+                )
+                self.straight_sign_visually_detected = False
+                self.right_sign_visually_detected = False
+                self.left_sign_visually_detected = False
+                self.intersection_maneuver_finished = False
+                self.state = STATE_STOPPED_AT_TRAFFIC_LIGHT  # Nach manueller Pause in STOPPED_AT_TRAFFIC_LIGHT zurückkehren
+            elif toggle_command == "toggle_obstacle":
+                self.manual_pause_active = False
+                self.initial_traffic_light_check_done = (
+                    True  # Damit die Ampelphase nicht erneut geprüft wird
+                )
+                self.obstacle_is_blocking = True
+                self.obstacle_just_passed = (
+                    False  # Reset, falls wir gerade in der Umfahrung waren
+                )
+                self.parking_sign_visually_detected = (
+                    False  # Reset, falls wir gerade parken wollten
+                )
+                self.parking_maneuver_finished = False
+                self.straight_sign_visually_detected = False
+                self.right_sign_visually_detected = False
+                self.left_sign_visually_detected = False
+                self.intersection_maneuver_finished = (
+                    False  # Reset, falls wir gerade parken wollten
+                )
+                self.state = STATE_STOPPED_AT_OBSTACLE  # Nach manueller Pause in STOPPED_AT_OBSTACLE zurückkehren
+
     def obstacle_detection_callback(self, msg: Bool):
         if self.manual_pause_active:
             return
@@ -239,18 +331,23 @@ class StateMachine(rclpy.node.Node):
             self.obstacle_just_passed = True  # Wird in control_loop verarbeitet
 
     def traffic_light_callback(self, msg: Bool):
-        if self.manual_pause_active:
+        if self.manual_pause_active or self.initial_traffic_light_check_done:
             return
-        if self.initial_traffic_light_check_done:
-            return
-        is_red = not msg.data
+
+        is_red = not msg.data  # Nachricht ist True für GRÜN
+
         if self.traffic_light_is_red and not is_red:
+            # self.get_logger().info("Ampel ist GRÜN, fahre los.")
             self.traffic_light_is_red = False
             self.initial_traffic_light_check_done = True
+            self.change_state(STATE_FOLLOW_LANE)
+
+            # Subscription jetzt sicher entfernen
             if self.traffic_light_subscription:
                 self.destroy_subscription(self.traffic_light_subscription)
                 self.traffic_light_subscription = None
         elif not self.traffic_light_is_red and is_red:
+            # self.get_logger().info("Ampel ist ROT, warte.")
             self.traffic_light_is_red = True
 
     def sign_detection_callback(self, msg: String):

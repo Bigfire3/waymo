@@ -1,12 +1,11 @@
 import rclpy
 import rclpy.node
-from std_msgs.msg import Bool
+from std_msgs.msg import Bool, String
 from sensor_msgs.msg import LaserScan
 import math
 
 
 class ObstacleDetectionNode(rclpy.node.Node):
-
     def __init__(self):
         super().__init__("obstacle_detection_node")
 
@@ -19,6 +18,7 @@ class ObstacleDetectionNode(rclpy.node.Node):
 
         self.closest_distance = float("inf")
         self.blocked = None
+        self.current_state = "STATE_STOPPED_AT_TRAFFIC_LIGHT"  # Startwert
 
         qos_policy = rclpy.qos.QoSProfile(
             reliability=rclpy.qos.ReliabilityPolicy.BEST_EFFORT,
@@ -26,6 +26,9 @@ class ObstacleDetectionNode(rclpy.node.Node):
             depth=1,
         )
 
+        self.state_subscriber = self.create_subscription(
+            String, "/robot/state", self.state_callback, qos_policy
+        )
         self.subscription = self.create_subscription(
             LaserScan, "scan", self.scanner_callback, qos_profile=qos_policy
         )
@@ -37,7 +40,13 @@ class ObstacleDetectionNode(rclpy.node.Node):
         timer_period = 0.1
         self.timer = self.create_timer(timer_period, self.timer_callback)
 
+    def state_callback(self, msg: String):
+        self.current_state = msg.data
+
     def scanner_callback(self, msg: LaserScan):
+        if self.current_state != "FOLLOW_LANE":
+            self.closest_distance = float("inf")
+            return
         # Reset closest distance for each new scan
         self.closest_distance = float("inf")
 
@@ -61,6 +70,15 @@ class ObstacleDetectionNode(rclpy.node.Node):
                     self.closest_distance = dist
 
     def timer_callback(self):
+        if self.current_state != "FOLLOW_LANE":
+            # Wenn der Node nicht aktiv ist, stelle sicher, dass der letzte gesendete Status "nicht blockiert" ist.
+            if self.blocked is not False:
+                self.blocked = False
+                msg = Bool()
+                msg.data = self.blocked
+                self.blocked_publisher_.publish(msg)
+            return
+
         distance_stop = self.get_parameter("distance_to_stop").value
 
         # Determine if blocked based on the closest distance found in the scan
@@ -73,9 +91,6 @@ class ObstacleDetectionNode(rclpy.node.Node):
             msg = Bool()
             msg.data = self.blocked
             self.blocked_publisher_.publish(msg)
-
-        # is_currently_blocked = False
-        # self.blocked = False
 
 
 def main(args=None):

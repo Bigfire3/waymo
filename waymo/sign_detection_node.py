@@ -19,6 +19,7 @@ from ament_index_python.packages import get_package_share_directory
 class SignDetectionNode(Node):
     def __init__(self):
         super().__init__("sign_detection_node")
+        self.current_state = "STATE_STOPPED_AT_TRAFFIC_LIGHT"  # Startwert
 
         def bool_desc(desc):
             return ParameterDescriptor(
@@ -66,6 +67,9 @@ class SignDetectionNode(Node):
             depth=1,
         )
 
+        self.state_subscriber = self.create_subscription(
+            String, "/robot/state", self.state_callback, qos_reliable
+        )
         self.subscription = self.create_subscription(
             CompressedImage,
             "/image_raw/compressed",
@@ -100,6 +104,9 @@ class SignDetectionNode(Node):
         self.templates_bin = {}  # Initial leer
 
         self.bridge = CvBridge()
+
+    def state_callback(self, msg: String):
+        self.current_state = msg.data
 
     def _publish_image(self, publisher, image, timestamp):
         if image is None:
@@ -191,6 +198,8 @@ class SignDetectionNode(Node):
         return binary_image
 
     def listener_callback(self, msg):
+        if self.current_state != "FOLLOW_LANE":
+            return
         try:
             np_arr = np.frombuffer(msg.data, np.uint8)
             image_color_input = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)

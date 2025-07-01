@@ -90,7 +90,7 @@ TURN_ANGLE_90_DEG = math.radians(87.0)  # Korrekturwinkel für 90 Grad Drehungen
 GOAL_TOLERANCE_ANGLE_RAD = math.radians(1.5)  # Toleranz für Drehmanöver
 
 # Neue Odometrie-basierte Distanzen
-DISTANCE_AFTER_INITIAL_SIGN = 0.45  # Meter, 51cm nach dem Schild
+DISTANCE_AFTER_INITIAL_SIGN = 0.46  # Meter, 51cm nach dem Schild
 DISTANCE_BETWEEN_SPOTS = 0.32  # Meter, 33cm von Parklücke zu Parklücke
 ODOM_DISTANCE_TOLERANCE = (
     0.01  # Meter, Toleranz für das Erreichen der Zieldistanz (2cm)
@@ -218,7 +218,7 @@ class ParkingNode(Node):
             Bool, PARKING_FINISHED_TOPIC, qos_reliable
         )
 
-        self.control_timer_period = 0.005  # 200 Hz für den Kontrollloop
+        self.control_timer_period = 0.02  # 50 Hz für den Kontrollloop
         self.control_timer = self.create_timer(
             self.control_timer_period, self.parking_sequence_controller
         )
@@ -260,6 +260,8 @@ class ParkingNode(Node):
         self.current_center_offset = msg.data
 
     def odom_callback(self, msg: Odometry):
+        if self.current_robot_state_from_manager != STATE_PARKING:
+            return
         # Position speichern
         self.current_pos_x = msg.pose.pose.position.x
         self.current_pos_y = msg.pose.pose.position.y
@@ -502,6 +504,10 @@ class ParkingNode(Node):
             ):  # Wenn nicht bereits IDLE, dann resetten
                 self.reset_parking_sequence()
             return  # Verlasse die Funktion, wenn nicht im Parkzustand
+
+        if self.parking_phase == ParkingPhase.IDLE:
+            self.stop_robot()
+            return
 
         if self.parking_phase == ParkingPhase.MANEUVER_COMPLETE:
             self.stop_robot()

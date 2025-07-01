@@ -2,7 +2,7 @@
 
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import Bool
+from std_msgs.msg import Bool, String
 from sensor_msgs.msg import CompressedImage
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 import cv2
@@ -126,6 +126,10 @@ class TrafficLightDetector(Node):
         )
 
         # Subscriber und Publisher
+        self.current_state = "STATE_STOPPED_AT_TRAFFIC_LIGHT"  # Startwert
+        self.state_subscriber = self.create_subscription(
+            String, "/robot/state", self.state_callback, qos_reliable
+        )
         self.subscription = self.create_subscription(
             CompressedImage,
             "/image_raw/compressed",
@@ -142,6 +146,9 @@ class TrafficLightDetector(Node):
         self.pub_overlay = self.create_publisher(
             CompressedImage, "/debug/cam/traffic_overlay", qos_best_effort
         )
+
+    def state_callback(self, msg: String):
+        self.current_state = msg.data
 
     def _publish_image(self, publisher, image, timestamp):
         """Hilfsfunktion zum Komprimieren und Publishen eines Bildes."""
@@ -170,6 +177,8 @@ class TrafficLightDetector(Node):
             #   self.get_logger().error(f"Allgemeiner Fehler beim Publishen auf '{publisher.topic}': {e}", throttle_duration_sec=5)
 
     def image_callback(self, msg):
+        if self.current_state != "STATE_STOPPED_AT_TRAFFIC_LIGHT":
+            return
         try:
             # Parameter holen
             publish_mask_flag = self.get_parameter("publish_mask").value
@@ -309,9 +318,6 @@ def main(args=None):
         pass
     except Exception as e:
         pass
-        # Logge Fehler, bevor Node zerstört wird
-        #  if node: node.get_logger().error(f"FATAL ERROR [{node_name_for_log}] in main: {e}\n{traceback.format_exc()}")
-        #  else: print(f"FATAL ERROR [{node_name_for_log}] vor Node-Init: {e}\n{traceback.format_exc()}", file=sys.stderr)
     finally:
         if node is not None:
             node.destroy_node()
