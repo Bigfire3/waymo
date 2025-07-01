@@ -130,8 +130,6 @@ class StateMachine(rclpy.node.Node):
         elif msg.data == "toggle_obstacle":
             self.toggle_manual_pause("toggle_obstacle")
 
-    
-
     def toggle_manual_pause(self, toggle_command):
         if not self.manual_pause_active:
             self.manual_pause_active = True
@@ -159,19 +157,25 @@ class StateMachine(rclpy.node.Node):
                 # Stay in current state, just unpause
                 pass
             elif toggle_command == "toggle_lane":
-                self.initial_traffic_light_check_done = True  # Skip initial traffic light check
+                self.initial_traffic_light_check_done = (
+                    True  # Skip initial traffic light check
+                )
                 self.state = STATE_FOLLOW_LANE
             elif toggle_command == "toggle_parking":
                 self.initial_traffic_light_check_done = True
-                self.parking_sign_visually_detected = True # Set flag to enter parking state
+                self.parking_sign_visually_detected = (
+                    True  # Set flag to enter parking state
+                )
                 self.state = STATE_PARKING
             elif toggle_command == "toggle_traffic_light":
                 self.traffic_light_is_red = True  # Reset traffic light status to red
-                self.initial_traffic_light_check_done = False # Force re-check of traffic light
+                self.initial_traffic_light_check_done = (
+                    False  # Force re-check of traffic light
+                )
                 self.state = STATE_STOPPED_AT_TRAFFIC_LIGHT
             elif toggle_command == "toggle_obstacle":
                 self.initial_traffic_light_check_done = True
-                self.obstacle_is_blocking = True # Set flag to enter obstacle state
+                self.obstacle_is_blocking = True  # Set flag to enter obstacle state
                 self.state = STATE_STOPPED_AT_OBSTACLE
         if self.manual_pause_active:
             return
