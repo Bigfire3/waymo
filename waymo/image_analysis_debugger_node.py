@@ -53,12 +53,12 @@ class ImageAnalysisDebuggerNode(Node):
         # --- Parameter für die Bildanalyse ---
         self.declare_parameter(
             "img_analysis_crop_top_percent",
-            55.0,
+            60.0,
             percent_desc("Crop top part of image for analysis (%)"),
         )
         self.declare_parameter(
             "img_analysis_crop_bottom_percent",
-            65.0,
+            75.0,
             percent_desc("Crop bottom part of image for analysis (%)"),
         )
         self.declare_parameter(

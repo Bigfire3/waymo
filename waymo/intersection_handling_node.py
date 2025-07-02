@@ -63,10 +63,10 @@ DEFAULT_TURN_ANGULAR_SPEED_RIGHT = 0.9
 DEFAULT_TURN_ANGULAR_SPEED_LEFT = 0.5
 VISUAL_CORRECTION_ANGULAR_SPEED = 0.2  # Angular speed for visual correction in rad/s
 DEFAULT_STRAIGHT_DISTANCE_PART1 = 0.4
-DEFAULT_STRAIGHT_DISTANCE_FINAL = 0.45
+DEFAULT_STRAIGHT_DISTANCE_FINAL = 0.5
 DEFAULT_POST_TURN_STRAIGHT_DISTANCE = 0.1  # Distance to drive straight after a turn
 DEFAULT_SIDE_SIGN_SCAN_TIMEOUT = 7.5
-DEFAULT_WAIT_AT_REFERENCE_DURATION = 0.5
+DEFAULT_WAIT_AT_REFERENCE_DURATION = 0.1
 DEFAULT_PRE_ANALYSIS_WAIT_DURATION = 0.1
 DEFAULT_FINAL_WAIT_DURATION = 0.0
 DEFAULT_RIGHT_SIDE_SCAN_ANGLE_MIN_DEG = 85.0
@@ -262,7 +262,7 @@ class IntersectionHandlingNode(Node):
         )
         self.declare_parameter(
             "turn_left_combined_angular_speed",
-            0.55,
+            0.50,
             float_desc(
                 "Angular speed during combined left turn",
                 min_val=-2.0,
@@ -442,7 +442,7 @@ class IntersectionHandlingNode(Node):
             ),
         )
         self.declare_parameter("lane_follow_p_gain", 1.0, float_desc("..."))
-        self.declare_parameter("max_angular_z_lane_follow", 1.0, float_desc("..."))
+        self.declare_parameter("max_angular_z_lane_follow", 0.3, float_desc("..."))
 
         self.approach_speed = self.get_parameter("approach_speed").value
         (
@@ -666,7 +666,8 @@ class IntersectionHandlingNode(Node):
                 )
                 self.change_phase(IntersectionPhase.ABORTING)
                 return
-            self.move_robot(self.approach_speed, 0.0)
+            # self.move_robot(self.approach_speed, 0.0)
+            self.drive_with_lane_follow(self.approach_speed)
         elif self.current_phase == IntersectionPhase.WAITING_AT_REFERENCE_POINT:
             if (
                 elapsed_phase_time

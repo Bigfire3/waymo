@@ -129,6 +129,8 @@ class StateMachine(rclpy.node.Node):
             self.toggle_manual_pause("toggle_traffic_light")
         elif msg.data == "toggle_obstacle":
             self.toggle_manual_pause("toggle_obstacle")
+        elif msg.data == "toggle_intersection":
+            self.toggle_manual_pause("toggle_intersection")
 
     def toggle_manual_pause(self, toggle_command):
         if not self.manual_pause_active:
@@ -177,6 +179,14 @@ class StateMachine(rclpy.node.Node):
                 self.initial_traffic_light_check_done = True
                 self.obstacle_is_blocking = True  # Set flag to enter obstacle state
                 self.state = STATE_STOPPED_AT_OBSTACLE
+            elif toggle_command == "toggle_intersection":
+                # Reset intersection flags
+                self.intersection_maneuver_finished = False
+                self.straight_sign_visually_detected = True
+                self.right_sign_visually_detected = False
+                self.left_sign_visually_detected = False
+                # Set state to driving straight as default for intersection
+                self.state = STATE_INTERSECTION_DRIVING_STRAIGHT
         if self.manual_pause_active:
             return
 

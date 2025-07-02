@@ -19,6 +19,7 @@ TOGGLE_LANE_KEY = "l"
 TOGGLE_PARKING_KEY = "p"
 TOGGLE_TRAFFIC_LIGHT_KEY = "t"
 TOGGLE_OBSTACLE_KEY = "o"
+TOGGLE_INTERSEC_KEY = "i"  # Neue Taste für Intersection
 
 
 class KeyboardHandlerNode(rclpy.node.Node):
@@ -105,6 +106,11 @@ class KeyboardHandlerNode(rclpy.node.Node):
                         cmd_to_send = "toggle_obstacle"
                         self.get_logger().info(
                             f'"{TOGGLE_OBSTACLE_KEY}" pressed, sending "{cmd_to_send}" command.'
+                        )
+                    elif key == TOGGLE_INTERSEC_KEY:
+                        cmd_to_send = "toggle_intersection"
+                        self.get_logger().info(
+                            f'"{TOGGLE_INTERSEC_KEY}" pressed, sending "{cmd_to_send}" command.'
                         )
                     elif key == "\x03":  # Ctrl+C
                         self.get_logger().info(
