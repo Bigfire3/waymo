@@ -432,6 +432,15 @@ class IntersectionHandlingNode(Node):
             2.0,
             float_desc("Pixel tolerance for visual correction maneuver"),
         )
+        self.declare_parameter(
+            "background_brightness_threshold",
+            127,
+            int_desc(
+                "Pixel intensity threshold to determine if background is light or dark (0-255)",
+                min_val=0,
+                max_val=255,
+            ),
+        )
         self.declare_parameter("lane_follow_p_gain", 1.0, float_desc("..."))
         self.declare_parameter("max_angular_z_lane_follow", 1.0, float_desc("..."))
 
@@ -459,7 +468,8 @@ class IntersectionHandlingNode(Node):
             self.phase_start_time,
             self.side_sign_detected_by_laser,
             self.odom_initialized,
-        ) = (0.0, False, False)
+            self.is_dark_background,
+        ) = (0.0, False, False, True)
 
         qos_sensor = QoSProfile(
             reliability=ReliabilityPolicy.BEST_EFFORT,
@@ -508,6 +518,10 @@ class IntersectionHandlingNode(Node):
             self.latest_image_frame = self.bridge.compressed_imgmsg_to_cv2(
                 msg, desired_encoding="bgr8"
             )
+            
+            # Analyze the background to determine if it is light or dark
+            self.analyze_background_type()
+
             if (
                 self.current_phase
                 == IntersectionPhase.CORRECTING_ANGLE_WITH_VISUAL_FEEDBACK
@@ -515,14 +529,42 @@ class IntersectionHandlingNode(Node):
                 self.calculate_current_visual_offset()
         except Exception as e:
             self.get_logger().warn(
-                f"Error decoding image: {e}", throttle_duration_sec=5
+                f"Error decoding or processing image: {e}", throttle_duration_sec=5
             )
             self.latest_image_frame = None
+
+    def analyze_background_type(self):
+        """Analyzes the bottom 40% of the image to determine if the background is dark or light."""
+        if self.latest_image_frame is None:
+            return
+
+        frame = self.latest_image_frame
+        h, _, _ = frame.shape
+
+        # Define the Region of Interest (ROI) as the bottom 40% of the image
+        roi_top = int(h * 0.6)
+        background_roi = frame[roi_top:, :]
+
+        if background_roi.size == 0:
+            return
+
+        # Convert ROI to grayscale and calculate the mean intensity
+        gray_roi = cv2.cvtColor(background_roi, cv2.COLOR_BGR2GRAY)
+        avg_intensity = np.mean(gray_roi)
+
+        # Get the threshold from parameters
+        threshold = self.get_parameter("background_brightness_threshold").value
+        
+        # Determine background type and update the flag
+        currently_dark = avg_intensity < threshold
+        if currently_dark != self.is_dark_background:
+            self.is_dark_background = currently_dark
+            background_type = "dark" if self.is_dark_background else "light"
+            self.get_logger().info(f"Background type detected: {background_type} (Avg intensity: {avg_intensity:.1f})")
 
     def speed_callback(self, msg: Float64):
         if not self.maneuver_active_by_statemgr:
             return
-        # self.approach_speed = msg.
         self.approach_speed = self.get_parameter("approach_speed").value
 
     def odom_callback(self, msg: Odometry):
@@ -622,7 +664,6 @@ class IntersectionHandlingNode(Node):
                 )
                 self.change_phase(IntersectionPhase.ABORTING)
                 return
-            # self.drive_with_lane_follow(self.get_parameter('approach_speed').value)
             self.move_robot(self.approach_speed, 0.0)
         elif self.current_phase == IntersectionPhase.WAITING_AT_REFERENCE_POINT:
             if (
@@ -642,7 +683,6 @@ class IntersectionHandlingNode(Node):
                     )
                 elif self.active_intersection_state == STATE_INTERSECTION_TURNING_RIGHT:
                     self.change_phase(
-                        # IntersectionPhase.EXECUTING_RIGHT_TURN_MANEUVER_PRE_STRAIGHT
                         IntersectionPhase.EXECUTING_RIGHT_TURN_MANEUVER_COMBINED_TURN
                     )
                 else:
@@ -668,11 +708,9 @@ class IntersectionHandlingNode(Node):
         ):
             tolerance = self.get_parameter("visual_correction_tolerance_pixels").value
             if self.current_visual_offset is None:
-                # self.get_logger().warn("Waiting for visual offset to be calculated...", throttle_duration_sec=1)
                 self.stop_robot()
                 return
             if abs(self.current_visual_offset) <= tolerance:
-                # self.get_logger().info("Visual correction finished. Offset is within tolerance.")
                 self.stop_robot()
                 self.change_phase(IntersectionPhase.EXECUTING_STRAIGHT_MANEUVER_FINAL)
             else:
@@ -776,6 +814,11 @@ class IntersectionHandlingNode(Node):
             return
 
         gray_frame = cv2.cvtColor(cropped_frame, cv2.COLOR_BGR2GRAY)
+
+        # Invert the image if the background is detected as light
+        if not self.is_dark_background:
+            gray_frame = cv2.bitwise_not(gray_frame)
+            
         _, binary_frame = cv2.threshold(
             gray_frame, binary_threshold, 255, cv2.THRESH_BINARY
         )
@@ -883,14 +926,6 @@ class IntersectionHandlingNode(Node):
             return True
         actual_angular_speed = angular_speed_cmd
 
-        # Optional: Verlangsamung bei Annäherung an das Ziel
-        # if abs(angle_diff) < math.radians(15):  # Beispiel: Verlangsame, wenn weniger als 10 Grad zum Ziel
-        #     actual_angular_speed *= 0.5 # Reduziere Geschwindigkeit um die Hälfte
-
-        # Optional: Verlangsamung bei Annäherung an das Ziel
-        # if abs(angle_diff) < math.radians(10):  # Beispiel: Verlangsame, wenn weniger als 10 Grad zum Ziel
-        #     actual_angular_speed *= 0.5 # Reduziere Geschwindigkeit um die Hälfte
-
         self.get_logger().debug(
             f"Turning: Current Yaw {math.degrees(self.current_yaw):.1f} deg, Target Yaw {math.degrees(target_yaw):.1f} deg, Angle Diff {math.degrees(angle_diff):.1f} deg, Cmd Angular Speed: {actual_angular_speed:.2f}, Cmd Forward Speed: {forward_speed:.2f}"
         )
@@ -927,32 +962,21 @@ class IntersectionHandlingNode(Node):
         angle_max_rad_target: float,
         detection_distance: float,
     ) -> bool:
-        # Stellt sicher, dass angle_increment gültig ist, um Division durch Null oder Endlosschleifen zu vermeiden
         if scan_msg.angle_increment <= 0.0:
             self.get_logger().warn(
                 "Ungültiges angle_increment im Laserscan.", throttle_duration_sec=10
             )
             return False
 
-        # Berechne den tatsächlichen maximalen Winkel des Scans
         actual_scan_angle_max_rad = (
             scan_msg.angle_min + (len(scan_msg.ranges) - 1) * scan_msg.angle_increment
         )
-
-        # Stelle sicher, dass der Zielbereich innerhalb des Scanbereichs liegt
         adj_target_min_rad = max(angle_min_rad_target, scan_msg.angle_min)
         adj_target_max_rad = min(angle_max_rad_target, actual_scan_angle_max_rad)
 
-        # Wenn der angepasste Bereich ungültig ist (min >= max), gibt es keine gültigen Indizes
         if adj_target_min_rad >= adj_target_max_rad:
-            self.get_logger().debug(
-                f"Angepasster Scanbereich ungültig: min_rad={adj_target_min_rad}, max_rad={adj_target_max_rad}"
-            )
             return False
 
-        # Konvertiere Winkel in Array-Indizes
-        # Runden auf den nächsten Index oder int() verwenden (abschneiden) kann je nach Anforderung variieren.
-        # Hier verwenden wir int() für den Start und stellen sicher, dass der Endindex nicht überschritten wird.
         start_index = max(
             0, int((adj_target_min_rad - scan_msg.angle_min) / scan_msg.angle_increment)
         )
@@ -961,21 +985,11 @@ class IntersectionHandlingNode(Node):
             int((adj_target_max_rad - scan_msg.angle_min) / scan_msg.angle_increment),
         )
 
-        # Erneute Prüfung, ob die Indizes nach Anpassung und Konvertierung gültig sind
         if start_index > end_index:
-            self.get_logger().debug(
-                f"Startindex {start_index} > Endindex {end_index} nach Indexberechnung."
-            )
             return False
 
-        self.get_logger().debug(
-            f"Scanning zone from index {start_index} to {end_index} for distance < {detection_distance:.2f}m."
-        )
         for i in range(start_index, end_index + 1):
             dist = scan_msg.ranges[i]
-            # Prüfe auf gültige Distanzwerte (nicht unendlich, nicht NaN)
-            # und ob sie innerhalb des gültigen Bereichs des Sensors liegen
-            # und kleiner als die Zieldistanz sind.
             if (
                 not math.isinf(dist)
                 and not math.isnan(dist)
@@ -983,13 +997,8 @@ class IntersectionHandlingNode(Node):
                 and dist <= scan_msg.range_max
                 and dist < detection_distance
             ):
-                self.get_logger().debug(
-                    f"Hindernis bei Index {i} auf {dist:.2f}m erkannt (Ziel < {detection_distance:.2f}m)."
-                )
-                return (
-                    True  # Hindernis im Zielbereich und innerhalb der Distanz gefunden
-                )
-        return False  # Kein Hindernis im Zielbereich gefunden
+                return True
+        return False
 
     def change_phase(self, new_phase: IntersectionPhase):
         if self.current_phase == new_phase:
@@ -1001,9 +1010,6 @@ class IntersectionHandlingNode(Node):
         self.current_phase = new_phase
         self.phase_start_time = self.get_clock().now().nanoseconds / 1e9
 
-        # --- KORREKTUR: Logik aufgeteilt in unabhängige Blöcke ---
-
-        # 1. Startposition für Distanzmessungen zurücksetzen
         position_reset_phases = [
             "PRE_STRAIGHT",
             "POST_STRAIGHT",
@@ -1017,7 +1023,6 @@ class IntersectionHandlingNode(Node):
                 f"Segment start position reset at ({self.start_pos_x_segment:.2f}, {self.start_pos_y_segment:.2f})"
             )
 
-        # 2. Start-Yaw für Drehungen zurücksetzen
         if "TURN" in new_phase.name:
             self.start_yaw_for_turn = self.current_yaw
             if (
@@ -1025,14 +1030,13 @@ class IntersectionHandlingNode(Node):
                 == IntersectionPhase.EXECUTING_RIGHT_TURN_MANEUVER_COMBINED_TURN
             ):
                 angle = -DEFAULT_TURN_ANGLE_90_DEG
-            else:  # Gilt für Links-Drehungen
+            else:
                 angle = DEFAULT_TURN_ANGLE_90_DEG
             self.target_yaw_for_turn = self.normalize_angle(self.current_yaw + angle)
             self.get_logger().info(
                 f"Turn maneuver initiated. Start Yaw: {math.degrees(self.start_yaw_for_turn):.1f}, Target Yaw: {math.degrees(self.target_yaw_for_turn):.1f}"
             )
 
-        # 3. Spezielle Aktionen für andere Phasen
         if new_phase == IntersectionPhase.DRIVING_TO_SIDE_SIGN_REFERENCE:
             self.side_sign_detected_by_laser = False
 
@@ -1048,7 +1052,6 @@ class IntersectionHandlingNode(Node):
                 self.intersection_finished_publisher.publish(finished_msg)
 
             if new_phase != IntersectionPhase.INTERSECTION_FINISHED:
-                # Setzt den State sicher auf IDLE, um Schleifen zu vermeiden
                 self.current_phase = IntersectionPhase.IDLE
             self.maneuver_active_by_statemgr = False
 
