@@ -72,7 +72,7 @@ DEFAULT_FINAL_WAIT_DURATION = 0.0
 DEFAULT_RIGHT_SIDE_SCAN_ANGLE_MIN_DEG = 85.0
 DEFAULT_RIGHT_SIDE_SCAN_ANGLE_MAX_DEG = 95.0
 DEFAULT_RIGHT_SIDE_SCAN_DISTANCE = 0.25
-DEFAULT_TURN_ANGLE_90_DEG = math.pi / 2
+DEFAULT_TURN_ANGLE_90_DEG = math.radians(90.0) # 87 degrees for a 90 degree turn
 DEFAULT_GOAL_TOLERANCE_ANGLE_RAD = math.radians(5.0)
 DEFAULT_ODOM_DISTANCE_TOLERANCE = 0.05
 
@@ -560,9 +560,9 @@ class IntersectionHandlingNode(Node):
         if currently_dark != self.is_dark_background:
             self.is_dark_background = currently_dark
             background_type = "dark" if self.is_dark_background else "light"
-            self.get_logger().info(
-                f"Background type detected: {background_type} (Avg intensity: {avg_intensity:.1f})"
-            )
+            # self.get_logger().info(
+                # f"Background type detected: {background_type} (Avg intensity: {avg_intensity:.1f})"
+            # )
 
     def speed_callback(self, msg: Float64):
         if not self.maneuver_active_by_statemgr:
@@ -583,7 +583,7 @@ class IntersectionHandlingNode(Node):
             )[2]
             if not self.odom_initialized:
                 self.odom_initialized = True
-                self.get_logger().info("Odometry data initialized.")
+                # self.get_logger().info("Odometry data initialized.")
         except Exception:
             pass
 
@@ -604,9 +604,9 @@ class IntersectionHandlingNode(Node):
             if self.check_laser_zone(
                 msg, math.radians(angle_min_deg), math.radians(angle_max_deg), dist
             ):
-                self.get_logger().info(
-                    f"Side sign detected by laser at distance {dist:.2f}m within angles {angle_min_deg:.1f}-{angle_max_deg:.1f} degrees."
-                )
+                # self.get_logger().info(
+                #     f"Side sign detected by laser at distance {dist:.2f}m within angles {angle_min_deg:.1f}-{angle_max_deg:.1f} degrees."
+                # )
                 self.side_sign_detected_by_laser = True
                 self.stop_robot()
                 self.change_phase(IntersectionPhase.WAITING_AT_REFERENCE_POINT)
@@ -623,16 +623,16 @@ class IntersectionHandlingNode(Node):
             STATE_INTERSECTION_TURNING_RIGHT,
         ]
         if is_intersection_now and not self.maneuver_active_by_statemgr:
-            self.get_logger().info(
-                f"Intersection handling ACTIVATED with state: {new_state}"
-            )
+            # self.get_logger().info(
+            #     f"Intersection handling ACTIVATED with state: {new_state}"
+            # )
             self.maneuver_active_by_statemgr, self.active_intersection_state = (
                 True,
                 new_state,
             )
             self.change_phase(IntersectionPhase.DRIVING_TO_SIDE_SIGN_REFERENCE)
         elif not is_intersection_now and self.maneuver_active_by_statemgr:
-            self.get_logger().info("Intersection handling DEACTIVATED.")
+            # self.get_logger().info("Intersection handling DEACTIVATED.")
             self.maneuver_active_by_statemgr = False
             self.change_phase(IntersectionPhase.IDLE)
 
@@ -648,16 +648,16 @@ class IntersectionHandlingNode(Node):
             return
 
         if not self.odom_initialized:
-            self.get_logger().warn("Odometry data not yet initialized. Waiting...")
+            # self.get_logger().warn("Odometry data not yet initialized. Waiting...")
             self.stop_robot()
             return
 
         elapsed_phase_time = (
             self.get_clock().now().nanoseconds / 1e9 - self.phase_start_time
         )
-        self.get_logger().debug(
-            f"Current phase: {self.current_phase.name}, Elapsed time: {elapsed_phase_time:.2f}s"
-        )
+        # self.get_logger().debug(
+        #     f"Current phase: {self.current_phase.name}, Elapsed time: {elapsed_phase_time:.2f}s"
+        # )
 
         if self.current_phase == IntersectionPhase.DRIVING_TO_SIDE_SIGN_REFERENCE:
             if elapsed_phase_time > self.get_parameter("side_sign_scan_timeout").value:
@@ -885,9 +885,9 @@ class IntersectionHandlingNode(Node):
         twist_msg = Twist()
         twist_msg.linear.x = linear_x
         twist_msg.angular.z = float(angular_z)
-        self.get_logger().debug(
-            f"Publishing cmd_vel: linear.x={linear_x:.2f}, angular.z={angular_z:.2f}"
-        )
+        # self.get_logger().debug(
+        #     f"Publishing cmd_vel: linear.x={linear_x:.2f}, angular.z={angular_z:.2f}"
+        # )
         self.cmd_vel_publisher.publish(twist_msg)
 
     def stop_robot(self):
@@ -905,9 +905,9 @@ class IntersectionHandlingNode(Node):
             (self.current_pos_x - self.start_pos_x_segment) ** 2
             + (self.current_pos_y - self.start_pos_y_segment) ** 2
         )
-        self.get_logger().debug(
-            f"Driving straight: Traveled {traveled:.2f}m / Target {target_distance:.2f}m (Current: ({self.current_pos_x:.2f}, {self.current_pos_y:.2f}), Start: ({self.start_pos_x_segment:.2f}, {self.start_pos_y_segment:.2f}), Tolerance: {DEFAULT_ODOM_DISTANCE_TOLERANCE:.2f})"
-        )
+        # self.get_logger().debug(
+        #     f"Driving straight: Traveled {traveled:.2f}m / Target {target_distance:.2f}m (Current: ({self.current_pos_x:.2f}, {self.current_pos_y:.2f}), Start: ({self.start_pos_x_segment:.2f}, {self.start_pos_y_segment:.2f}), Tolerance: {DEFAULT_ODOM_DISTANCE_TOLERANCE:.2f})"
+        # )
         if traveled >= target_distance - DEFAULT_ODOM_DISTANCE_TOLERANCE:
             self.stop_robot()
             return True
@@ -929,9 +929,9 @@ class IntersectionHandlingNode(Node):
             return True
         actual_angular_speed = angular_speed_cmd
 
-        self.get_logger().debug(
-            f"Turning: Current Yaw {math.degrees(self.current_yaw):.1f} deg, Target Yaw {math.degrees(target_yaw):.1f} deg, Angle Diff {math.degrees(angle_diff):.1f} deg, Cmd Angular Speed: {actual_angular_speed:.2f}, Cmd Forward Speed: {forward_speed:.2f}"
-        )
+        # self.get_logger().debug(
+        #     f"Turning: Current Yaw {math.degrees(self.current_yaw):.1f} deg, Target Yaw {math.degrees(target_yaw):.1f} deg, Angle Diff {math.degrees(angle_diff):.1f} deg, Cmd Angular Speed: {actual_angular_speed:.2f}, Cmd Forward Speed: {forward_speed:.2f}"
+        # )
 
         self.move_robot(forward_speed, actual_angular_speed)
         return False
@@ -966,9 +966,9 @@ class IntersectionHandlingNode(Node):
         detection_distance: float,
     ) -> bool:
         if scan_msg.angle_increment <= 0.0:
-            self.get_logger().warn(
-                "Ungültiges angle_increment im Laserscan.", throttle_duration_sec=10
-            )
+            # self.get_logger().warn(
+            #     "Ungültiges angle_increment im Laserscan.", throttle_duration_sec=10
+            # )
             return False
 
         actual_scan_angle_max_rad = (
@@ -1007,9 +1007,9 @@ class IntersectionHandlingNode(Node):
         if self.current_phase == new_phase:
             return
 
-        self.get_logger().info(
-            f"Phase change: {self.current_phase.name} -> {new_phase.name}"
-        )
+        # self.get_logger().info(
+        #     f"Phase change: {self.current_phase.name} -> {new_phase.name}"
+        # )
         self.current_phase = new_phase
         self.phase_start_time = self.get_clock().now().nanoseconds / 1e9
 
@@ -1022,9 +1022,9 @@ class IntersectionHandlingNode(Node):
         if any(phase_name in new_phase.name for phase_name in position_reset_phases):
             self.start_pos_x_segment = self.current_pos_x
             self.start_pos_y_segment = self.current_pos_y
-            self.get_logger().info(
-                f"Segment start position reset at ({self.start_pos_x_segment:.2f}, {self.start_pos_y_segment:.2f})"
-            )
+            # self.get_logger().info(
+            #     f"Segment start position reset at ({self.start_pos_x_segment:.2f}, {self.start_pos_y_segment:.2f})"
+            # )
 
         if "TURN" in new_phase.name:
             self.start_yaw_for_turn = self.current_yaw
@@ -1036,9 +1036,9 @@ class IntersectionHandlingNode(Node):
             else:
                 angle = DEFAULT_TURN_ANGLE_90_DEG
             self.target_yaw_for_turn = self.normalize_angle(self.current_yaw + angle)
-            self.get_logger().info(
-                f"Turn maneuver initiated. Start Yaw: {math.degrees(self.start_yaw_for_turn):.1f}, Target Yaw: {math.degrees(self.target_yaw_for_turn):.1f}"
-            )
+            # self.get_logger().info(
+            #     f"Turn maneuver initiated. Start Yaw: {math.degrees(self.start_yaw_for_turn):.1f}, Target Yaw: {math.degrees(self.target_yaw_for_turn):.1f}"
+            # )
 
         if new_phase == IntersectionPhase.DRIVING_TO_SIDE_SIGN_REFERENCE:
             self.side_sign_detected_by_laser = False

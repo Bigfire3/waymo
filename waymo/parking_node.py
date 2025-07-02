@@ -310,8 +310,8 @@ class ParkingNode(Node):
                 SPOT_SCAN_ANGLE_MAX_RAD_STRAIGHT,
                 self.get_parameter("parking_spot_clear_distance_straight").value,
             )
-            if not is_spot_clear_straight:
-                self.get_logger().info("Parklücke ist nicht frei (GERADE).")
+            # if not is_spot_clear_straight:
+                # self.get_logger().info("Parklücke ist nicht frei (GERADE).")
 
             is_spot_clear_wide_right = not self.check_laser_zone(
                 msg,
@@ -319,8 +319,8 @@ class ParkingNode(Node):
                 SPOT_SCAN_ANGLE_MAX_RAD_WIDE_RIGHT,
                 self.get_parameter("parking_spot_clear_distance_wide").value,
             )
-            if not is_spot_clear_wide_right:
-                self.get_logger().info("Parklücke ist nicht frei (WEIT RECHTS).")
+            # if not is_spot_clear_wide_right:
+            #     self.get_logger().info("Parklücke ist nicht frei (WEIT RECHTS).")
 
             is_spot_clear_wide_left = not self.check_laser_zone(
                 msg,
@@ -328,8 +328,8 @@ class ParkingNode(Node):
                 SPOT_SCAN_ANGLE_MAX_RAD_WIDE_LEFT,
                 self.get_parameter("parking_spot_clear_distance_wide").value,
             )
-            if not is_spot_clear_wide_left:
-                self.get_logger().info("Parklücke ist nicht frei (WEIT LINKS).")
+            # if not is_spot_clear_wide_left:
+            #     self.get_logger().info("Parklücke ist nicht frei (WEIT LINKS).")
 
             is_spot_clear_mid = not self.check_laser_zone(
                 msg,
@@ -337,8 +337,8 @@ class ParkingNode(Node):
                 SPOT_SCAN_ANGLE_MAX_RAD_MID,
                 self.get_parameter("parking_spot_clear_distance_mid").value,
             )
-            if not is_spot_clear_mid:
-                self.get_logger().info("Parklücke ist nicht frei (MITTEL).")
+            # if not is_spot_clear_mid:
+            #     self.get_logger().info("Parklücke ist nicht frei (MITTEL).")
 
             is_spot_clear_narrow = not self.check_laser_zone(
                 msg,
@@ -346,8 +346,8 @@ class ParkingNode(Node):
                 SPOT_SCAN_ANGLE_MAX_RAD_NARROW,
                 self.get_parameter("parking_spot_clear_distance_narrow").value,
             )
-            if not is_spot_clear_narrow:
-                self.get_logger().info("Parklücke ist nicht frei (ENG).")
+            # if not is_spot_clear_narrow:
+            #     self.get_logger().info("Parklücke ist nicht frei (ENG).")
 
             if (
                 is_spot_clear_straight
