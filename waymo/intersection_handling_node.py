@@ -518,7 +518,7 @@ class IntersectionHandlingNode(Node):
             self.latest_image_frame = self.bridge.compressed_imgmsg_to_cv2(
                 msg, desired_encoding="bgr8"
             )
-            
+
             # Analyze the background to determine if it is light or dark
             self.analyze_background_type()
 
@@ -554,13 +554,15 @@ class IntersectionHandlingNode(Node):
 
         # Get the threshold from parameters
         threshold = self.get_parameter("background_brightness_threshold").value
-        
+
         # Determine background type and update the flag
         currently_dark = avg_intensity < threshold
         if currently_dark != self.is_dark_background:
             self.is_dark_background = currently_dark
             background_type = "dark" if self.is_dark_background else "light"
-            self.get_logger().info(f"Background type detected: {background_type} (Avg intensity: {avg_intensity:.1f})")
+            self.get_logger().info(
+                f"Background type detected: {background_type} (Avg intensity: {avg_intensity:.1f})"
+            )
 
     def speed_callback(self, msg: Float64):
         if not self.maneuver_active_by_statemgr:
@@ -818,7 +820,7 @@ class IntersectionHandlingNode(Node):
         # Invert the image if the background is detected as light
         if not self.is_dark_background:
             gray_frame = cv2.bitwise_not(gray_frame)
-            
+
         _, binary_frame = cv2.threshold(
             gray_frame, binary_threshold, 255, cv2.THRESH_BINARY
         )

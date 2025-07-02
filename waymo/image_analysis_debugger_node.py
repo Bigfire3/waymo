@@ -252,13 +252,9 @@ class ImageAnalysisDebuggerNode(Node):
             cv2.line(hist_img, (x, hist_h), (x, hist_h - h_val), (255, 255, 255), 1)
 
         valley_thresh_y = hist_h - int(valley_threshold / hist_max * (hist_h - 10))
-        cv2.line(
-            hist_img, (0, valley_thresh_y), (w, valley_thresh_y), (0, 255, 255), 1
-        )
+        cv2.line(hist_img, (0, valley_thresh_y), (w, valley_thresh_y), (0, 255, 255), 1)
         if road_start != -1:
-            cv2.rectangle(
-                hist_img, (road_start, 0), (road_end, hist_h), (0, 255, 0), 1
-            )
+            cv2.rectangle(hist_img, (road_start, 0), (road_end, hist_h), (0, 255, 0), 1)
             cv2.line(
                 hist_img,
                 (road_center_pixel, 0),
