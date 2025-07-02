@@ -170,9 +170,15 @@ class TrafficLightDetector(Node):
             msg.header.stamp = timestamp
             publisher.publish(msg)
         except CvBridgeError as e:
-            self.get_logger().error(f"CvBridge Fehler beim Publishen auf '{publisher.topic}': {e}", throttle_duration_sec=5)
+            self.get_logger().error(
+                f"CvBridge Fehler beim Publishen auf '{publisher.topic}': {e}",
+                throttle_duration_sec=5,
+            )
         except Exception as e:
-            self.get_logger().error(f"Allgemeiner Fehler beim Publishen auf '{publisher.topic}': {e}", throttle_duration_sec=5)
+            self.get_logger().error(
+                f"Allgemeiner Fehler beim Publishen auf '{publisher.topic}': {e}",
+                throttle_duration_sec=5,
+            )
 
     def image_callback(self, msg):
         if self.current_state != "STOPPED_AT_TRAFFIC_LIGHT":
@@ -215,7 +221,9 @@ class TrafficLightDetector(Node):
             self.publisher_.publish(Bool(data=not detected))
 
         except Exception as e:
-            self.get_logger().error(f"ERROR in image_callback: {e}", throttle_duration_sec=10)
+            self.get_logger().error(
+                f"ERROR in image_callback: {e}", throttle_duration_sec=10
+            )
             self.get_logger().error(traceback.format_exc())
 
     def detect_target_color(self, frame):
@@ -287,9 +295,14 @@ class TrafficLightDetector(Node):
                         # break # Nicht breaken, um alle gültigen Blobs in filtered_mask zu haben
 
         except cv2.error as cv_err:
-            self.get_logger().error(f"OpenCV error in detect_target_color: {cv_err}", throttle_duration_sec=10)
+            self.get_logger().error(
+                f"OpenCV error in detect_target_color: {cv_err}",
+                throttle_duration_sec=10,
+            )
         except Exception as e:
-            self.get_logger().error(f"Error in detect_target_color: {e}", throttle_duration_sec=10)
+            self.get_logger().error(
+                f"Error in detect_target_color: {e}", throttle_duration_sec=10
+            )
             self.get_logger().error(traceback.format_exc())
 
         # Gib die *gefilterte* Maske zurück (nur Blobs der richtigen Größe)
