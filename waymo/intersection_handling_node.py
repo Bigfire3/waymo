@@ -72,7 +72,7 @@ DEFAULT_FINAL_WAIT_DURATION = 0.0
 DEFAULT_RIGHT_SIDE_SCAN_ANGLE_MIN_DEG = 85.0
 DEFAULT_RIGHT_SIDE_SCAN_ANGLE_MAX_DEG = 95.0
 DEFAULT_RIGHT_SIDE_SCAN_DISTANCE = 0.25
-DEFAULT_TURN_ANGLE_90_DEG = math.radians(90.0) # 87 degrees for a 90 degree turn
+DEFAULT_TURN_ANGLE_90_DEG = math.radians(90.0)  # 87 degrees for a 90 degree turn
 DEFAULT_GOAL_TOLERANCE_ANGLE_RAD = math.radians(5.0)
 DEFAULT_ODOM_DISTANCE_TOLERANCE = 0.05
 
@@ -561,7 +561,7 @@ class IntersectionHandlingNode(Node):
             self.is_dark_background = currently_dark
             background_type = "dark" if self.is_dark_background else "light"
             # self.get_logger().info(
-                # f"Background type detected: {background_type} (Avg intensity: {avg_intensity:.1f})"
+            # f"Background type detected: {background_type} (Avg intensity: {avg_intensity:.1f})"
             # )
 
     def speed_callback(self, msg: Float64):

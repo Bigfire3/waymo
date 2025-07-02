@@ -311,7 +311,7 @@ class ParkingNode(Node):
                 self.get_parameter("parking_spot_clear_distance_straight").value,
             )
             # if not is_spot_clear_straight:
-                # self.get_logger().info("Parklücke ist nicht frei (GERADE).")
+            # self.get_logger().info("Parklücke ist nicht frei (GERADE).")
 
             is_spot_clear_wide_right = not self.check_laser_zone(
                 msg,
