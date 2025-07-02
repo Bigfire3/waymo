@@ -55,26 +55,26 @@ NODE_NAME = "intersection_handling_node"
 ) = ("INTERSEC_DRIVING_STRAIGHT", "INTERSEC_TURNING_RIGHT", "INTERSEC_TURNING_LEFT")
 
 # --- Default-Werte ---
-DEFAULT_APPROACH_SPEED = 0.15  # m/s
+DEFAULT_APPROACH_SPEED = 0.1  # m/s
 DEFAULT_STRAIGHT_SPEED_PART1 = 0.2
 DEFAULT_STRAIGHT_SPEED_FINAL = 0.2
-DEFAULT_TURN_FORWARD_SPEED = 0.125
-DEFAULT_TURN_ANGULAR_SPEED_RIGHT = 0.45
-DEFAULT_TURN_ANGULAR_SPEED_LEFT = 0.25
-VISUAL_CORRECTION_ANGULAR_SPEED = 0.15  # Angular speed for visual correction in rad/s
+DEFAULT_TURN_FORWARD_SPEED = 0.2
+DEFAULT_TURN_ANGULAR_SPEED_RIGHT = 0.9
+DEFAULT_TURN_ANGULAR_SPEED_LEFT = 0.5
+VISUAL_CORRECTION_ANGULAR_SPEED = 0.2  # Angular speed for visual correction in rad/s
 DEFAULT_STRAIGHT_DISTANCE_PART1 = 0.4
 DEFAULT_STRAIGHT_DISTANCE_FINAL = 0.45
 DEFAULT_POST_TURN_STRAIGHT_DISTANCE = 0.1  # Distance to drive straight after a turn
 DEFAULT_SIDE_SIGN_SCAN_TIMEOUT = 7.5
-DEFAULT_WAIT_AT_REFERENCE_DURATION = 0.0
+DEFAULT_WAIT_AT_REFERENCE_DURATION = 0.5
 DEFAULT_PRE_ANALYSIS_WAIT_DURATION = 0.1
 DEFAULT_FINAL_WAIT_DURATION = 0.0
 DEFAULT_RIGHT_SIDE_SCAN_ANGLE_MIN_DEG = 85.0
 DEFAULT_RIGHT_SIDE_SCAN_ANGLE_MAX_DEG = 95.0
 DEFAULT_RIGHT_SIDE_SCAN_DISTANCE = 0.25
 DEFAULT_TURN_ANGLE_90_DEG = math.pi / 2
-DEFAULT_GOAL_TOLERANCE_ANGLE_RAD = math.radians(1.5)
-DEFAULT_ODOM_DISTANCE_TOLERANCE = 0.01
+DEFAULT_GOAL_TOLERANCE_ANGLE_RAD = math.radians(5.0)
+DEFAULT_ODOM_DISTANCE_TOLERANCE = 0.05
 
 
 class IntersectionPhase(Enum):
@@ -86,14 +86,16 @@ class IntersectionPhase(Enum):
         PRE_ANALYSIS_WAIT,
         CORRECTING_ANGLE_WITH_VISUAL_FEEDBACK,
         EXECUTING_STRAIGHT_MANEUVER_FINAL,
-        EXECUTING_LEFT_TURN_MANEUVER_TURN,
-        EXECUTING_LEFT_TURN_MANEUVER_STRAIGHT,
-        EXECUTING_RIGHT_TURN_MANEUVER_TURN,
-        EXECUTING_RIGHT_TURN_MANEUVER_STRAIGHT,
+        EXECUTING_LEFT_TURN_MANEUVER_PRE_STRAIGHT,
+        EXECUTING_LEFT_TURN_MANEUVER_COMBINED_TURN,
+        EXECUTING_LEFT_TURN_MANEUVER_POST_STRAIGHT,
+        EXECUTING_RIGHT_TURN_MANEUVER_PRE_STRAIGHT,
+        EXECUTING_RIGHT_TURN_MANEUVER_COMBINED_TURN,
+        EXECUTING_RIGHT_TURN_MANEUVER_POST_STRAIGHT,
         FINAL_WAIT,
         INTERSECTION_FINISHED,
         ABORTING,
-    ) = range(14)
+    ) = range(16)
 
 
 class IntersectionHandlingNode(Node):
@@ -138,87 +140,111 @@ class IntersectionHandlingNode(Node):
             )
 
         self.declare_parameter(
-            "approach_speed", DEFAULT_APPROACH_SPEED, float_desc("...")
+            "approach_speed", DEFAULT_APPROACH_SPEED, float_desc("Speed, that is used while approaching the intersection", min_val=0.0, max_val=2.0, step=0.01)
         )
         self.declare_parameter(
-            "straight_speed_part1", DEFAULT_STRAIGHT_SPEED_PART1, float_desc("...")
+            "straight_speed_part1", DEFAULT_STRAIGHT_SPEED_PART1, float_desc("Speed for the first part of the straight maneuver", min_val=0.0, max_val=2.0, step=0.01)
         )
         self.declare_parameter(
-            "straight_speed_final", DEFAULT_STRAIGHT_SPEED_FINAL, float_desc("...")
+            "straight_speed_final", DEFAULT_STRAIGHT_SPEED_FINAL, float_desc("Speed for the final part of the straight maneuver", min_val=0.0, max_val=2.0, step=0.01)
         )
         self.declare_parameter(
-            "turn_forward_speed", DEFAULT_TURN_FORWARD_SPEED, float_desc("...")
+            "turn_right_pre_straight_distance", 0.25, float_desc("Distance to drive straight before right turn", min_val=0.0, max_val=10.0, step=0.01)
         )
         self.declare_parameter(
-            "turn_angular_speed_right",
-            DEFAULT_TURN_ANGULAR_SPEED_RIGHT,
-            float_desc("..."),
+            "turn_right_pre_straight_speed", 0.2, float_desc("Speed to drive straight before right turn", min_val=0.0, max_val=2.0, step=0.01)
         )
         self.declare_parameter(
-            "turn_angular_speed_left",
-            DEFAULT_TURN_ANGULAR_SPEED_LEFT,
-            float_desc("..."),
+            "turn_right_combined_forward_speed", 0.125, float_desc("Forward speed during combined right turn", min_val=0.0, max_val=2.0, step=0.001)
+        )
+        self.declare_parameter(
+            "turn_right_combined_angular_speed", -0.45, float_desc("Angular speed during combined right turn", min_val=-2.0, max_val=2.0, step=0.01)
+        )
+        self.declare_parameter(
+            "turn_right_post_straight_distance", 0.2, float_desc("Distance to drive straight after right turn", min_val=0.0, max_val=10.0, step=0.01)
+        )
+        self.declare_parameter(
+            "turn_right_post_straight_speed", 0.25, float_desc("Speed to drive straight after right turn", min_val=0.0, max_val=2.0, step=0.01)
+        )
+
+        self.declare_parameter(
+            "turn_left_pre_straight_distance", 0.25, float_desc("Distance to drive straight before left turn", min_val=0.0, max_val=10.0, step=0.01)
+        )
+        self.declare_parameter(
+            "turn_left_pre_straight_speed", 0.2, float_desc("Speed to drive straight before left turn", min_val=0.0, max_val=2.0, step=0.01)
+        )
+        self.declare_parameter(
+            "turn_left_combined_forward_speed", 0.15, float_desc("Forward speed during combined left turn", min_val=0.0, max_val=2.0, step=0.01)
+        )
+        self.declare_parameter(
+            "turn_left_combined_angular_speed", 0.55, float_desc("Angular speed during combined left turn", min_val=-2.0, max_val=2.0, step=0.01)
+        )
+        self.declare_parameter(
+            "turn_left_post_straight_distance", 0.3, float_desc("Distance to drive straight after left turn", min_val=0.0, max_val=10.0, step=0.01)
+        )
+        self.declare_parameter(
+            "turn_left_post_straight_speed", 0.2, float_desc("Speed to drive straight after left turn", min_val=0.0, max_val=2.0, step=0.01)
         )
         self.declare_parameter(
             "straight_distance_part1",
             DEFAULT_STRAIGHT_DISTANCE_PART1,
-            float_desc("..."),
+            float_desc("Distance to drive straight in the first part of the maneuver", min_val=0.0, max_val=1.0, step=0.01),
         )
         self.declare_parameter(
             "straight_distance_final",
             DEFAULT_STRAIGHT_DISTANCE_FINAL,
-            float_desc("..."),
+            float_desc("Distance to drive straight in the final part of the maneuver", min_val=0.0, max_val=1.0, step=0.01),
         )
         self.declare_parameter(
             "post_turn_straight_distance",
             DEFAULT_POST_TURN_STRAIGHT_DISTANCE,
-            float_desc("..."),
+            float_desc("Distance to drive straight after a turn", min_val=0.0, max_val=1.0, step=0.01),
         )
         self.declare_parameter(
-            "side_sign_scan_timeout", DEFAULT_SIDE_SIGN_SCAN_TIMEOUT, float_desc("...")
+            "side_sign_scan_timeout", DEFAULT_SIDE_SIGN_SCAN_TIMEOUT, float_desc("Timeout for detecting the side sign with laser scan", min_val=0.0, max_val=10.0, step=0.1)
         )
         self.declare_parameter(
             "wait_at_reference_duration",
             DEFAULT_WAIT_AT_REFERENCE_DURATION,
-            float_desc("..."),
+            float_desc("Duration to wait at the reference point before starting the maneuver", min_val=0.0, max_val=10.0, step=0.1),
         )
         self.declare_parameter(
             "pre_analysis_wait_duration",
             DEFAULT_PRE_ANALYSIS_WAIT_DURATION,
-            float_desc("..."),
+            float_desc("Duration to wait before analyzing the image for visual correction", min_val=0.0, max_val=10.0, step=0.1),
         )
         self.declare_parameter(
-            "final_wait_duration", DEFAULT_FINAL_WAIT_DURATION, float_desc("...")
+            "final_wait_duration", DEFAULT_FINAL_WAIT_DURATION, float_desc("Duration to wait after finishing the intersection maneuver", min_val=0.0, max_val=10.0, step=0.1)
         )
         self.declare_parameter(
             "right_side_scan_angle_min_deg",
             DEFAULT_RIGHT_SIDE_SCAN_ANGLE_MIN_DEG,
-            deg_angle_desc("..."),
+            deg_angle_desc("Minimum angle for the right side scan in degrees", min_val=0.0, max_val=180.0, step=1.0),
         )
         self.declare_parameter(
             "right_side_scan_angle_max_deg",
             DEFAULT_RIGHT_SIDE_SCAN_ANGLE_MAX_DEG,
-            deg_angle_desc("..."),
+            deg_angle_desc("Maximum angle for the right side scan in degrees", min_val=0.0, max_val=180.0, step=1.0),
         )
         self.declare_parameter(
             "right_side_scan_distance",
             DEFAULT_RIGHT_SIDE_SCAN_DISTANCE,
-            float_desc("..."),
+            float_desc("Distance threshold for detecting the side sign with laser scan", min_val=0.0, max_val=30.0, step=0.01),
         )
         self.declare_parameter(
-            "img_analysis_crop_top_percent", 60.0, percent_desc("...")
+            "img_analysis_crop_top_percent", 60.0, percent_desc("Crop top percentage of the image for analysis")
         )
         self.declare_parameter(
-            "img_analysis_crop_bottom_percent", 75.0, percent_desc("...")
+            "img_analysis_crop_bottom_percent", 75.0, percent_desc("Crop bottom percentage of the image for analysis")
         )
         self.declare_parameter(
-            "img_analysis_binary_threshold", 140, int_desc("...", max_val=255)
+            "img_analysis_binary_threshold", 140, int_desc("Threschold for image analysis", min_val=0, max_val=255, step=1)
         )
         self.declare_parameter(
-            "histogram_valley_threshold", 500, int_desc("...", step=10)
+            "histogram_valley_threshold", 500, int_desc("Height of histogramm peaks used for valley detection", step=10)
         )
         self.declare_parameter(
-            "visual_centering_offset_correction", 30.0, float_desc("...")
+            "visual_centering_offset_correction", 30.0, float_desc("Offset correction for visual centering in pixels", min_val=-50.0, max_val=50.0, step=0.1)
         )
         self.declare_parameter(
             "visual_correction_angular_speed",
@@ -255,7 +281,7 @@ class IntersectionHandlingNode(Node):
             self.start_yaw_for_turn,
             self.target_yaw_for_turn,
         ) = (0.0, 0.0, 0.0, 0.0)
-        self.phase_start_time, self.side_sign_detected_by_laser = 0.0, False
+        self.phase_start_time, self.side_sign_detected_by_laser, self.odom_initialized = 0.0, False, False
 
         qos_sensor = QoSProfile(
             reliability=ReliabilityPolicy.BEST_EFFORT,
@@ -318,8 +344,8 @@ class IntersectionHandlingNode(Node):
     def speed_callback(self, msg: Float64):
         if not self.maneuver_active_by_statemgr:
             return
-        # self.approach_speed = msg.data
-        self.approach_speed = 0.2  # Temporarily set to a fixed value for testing
+        # self.approach_speed = msg.
+        self.approach_speed = self.get_parameter("approach_speed").value
 
     def odom_callback(self, msg: Odometry):
         if not self.maneuver_active_by_statemgr:
@@ -333,6 +359,9 @@ class IntersectionHandlingNode(Node):
             self.current_yaw = R.from_quat([q.x, q.y, q.z, q.w]).as_euler(
                 "xyz", degrees=False
             )[2]
+            if not self.odom_initialized:
+                self.odom_initialized = True
+                self.get_logger().info("Odometry data initialized.")
         except Exception:
             pass
 
@@ -353,6 +382,7 @@ class IntersectionHandlingNode(Node):
             if self.check_laser_zone(
                 msg, math.radians(angle_min_deg), math.radians(angle_max_deg), dist
             ):
+                self.get_logger().info(f"Side sign detected by laser at distance {dist:.2f}m within angles {angle_min_deg:.1f}-{angle_max_deg:.1f} degrees.")
                 self.side_sign_detected_by_laser = True
                 self.stop_robot()
                 self.change_phase(IntersectionPhase.WAITING_AT_REFERENCE_POINT)
@@ -369,14 +399,14 @@ class IntersectionHandlingNode(Node):
             STATE_INTERSECTION_TURNING_RIGHT,
         ]
         if is_intersection_now and not self.maneuver_active_by_statemgr:
-            # self.get_logger().info(f"Intersection handling ACTIVATED with state: {new_state}")
+            self.get_logger().info(f"Intersection handling ACTIVATED with state: {new_state}")
             self.maneuver_active_by_statemgr, self.active_intersection_state = (
                 True,
                 new_state,
             )
             self.change_phase(IntersectionPhase.DRIVING_TO_SIDE_SIGN_REFERENCE)
         elif not is_intersection_now and self.maneuver_active_by_statemgr:
-            # self.get_logger().info("Intersection handling DEACTIVATED.")
+            self.get_logger().info("Intersection handling DEACTIVATED.")
             self.maneuver_active_by_statemgr = False
             self.change_phase(IntersectionPhase.IDLE)
 
@@ -390,12 +420,20 @@ class IntersectionHandlingNode(Node):
             if self.current_phase != IntersectionPhase.IDLE:
                 self.change_phase(IntersectionPhase.IDLE)
             return
+
+        if not self.odom_initialized:
+            self.get_logger().warn("Odometry data not yet initialized. Waiting...")
+            self.stop_robot()
+            return
+
         elapsed_phase_time = (
             self.get_clock().now().nanoseconds / 1e9 - self.phase_start_time
         )
+        self.get_logger().debug(f"Current phase: {self.current_phase.name}, Elapsed time: {elapsed_phase_time:.2f}s")
 
         if self.current_phase == IntersectionPhase.DRIVING_TO_SIDE_SIGN_REFERENCE:
             if elapsed_phase_time > self.get_parameter("side_sign_scan_timeout").value:
+                self.get_logger().warn(f"Timeout ({self.get_parameter('side_sign_scan_timeout').value:.1f}s) reached for side sign detection. Aborting maneuver.")
                 self.change_phase(IntersectionPhase.ABORTING)
                 return
             # self.drive_with_lane_follow(self.get_parameter('approach_speed').value)
@@ -414,11 +452,12 @@ class IntersectionHandlingNode(Node):
                     )
                 elif self.active_intersection_state == STATE_INTERSECTION_TURNING_LEFT:
                     self.change_phase(
-                        IntersectionPhase.EXECUTING_LEFT_TURN_MANEUVER_TURN
+                        IntersectionPhase.EXECUTING_LEFT_TURN_MANEUVER_PRE_STRAIGHT
                     )
                 elif self.active_intersection_state == STATE_INTERSECTION_TURNING_RIGHT:
                     self.change_phase(
-                        IntersectionPhase.EXECUTING_RIGHT_TURN_MANEUVER_TURN
+                        # IntersectionPhase.EXECUTING_RIGHT_TURN_MANEUVER_PRE_STRAIGHT
+                        IntersectionPhase.EXECUTING_RIGHT_TURN_MANEUVER_COMBINED_TURN
                     )
                 else:
                     self.change_phase(IntersectionPhase.ABORTING)
@@ -460,32 +499,42 @@ class IntersectionHandlingNode(Node):
                 self.get_parameter("straight_speed_final").value,
             ):
                 self.change_phase(IntersectionPhase.FINAL_WAIT)
-        elif "TURN_MANEUVER_TURN" in self.current_phase.name:
-            fwd_speed, ang_speed_param = self.get_parameter(
-                "turn_forward_speed"
-            ).value, (
-                "turn_angular_speed_left"
-                if "LEFT" in self.current_phase.name
-                else "turn_angular_speed_right"
-            )
-            angular_speed = (
-                self.get_parameter(ang_speed_param).value
-                if "LEFT" in self.current_phase.name
-                else -self.get_parameter(ang_speed_param).value
-            )
-            if self.turn_to_target_yaw(
-                self.target_yaw_for_turn, angular_speed, fwd_speed
+        elif self.current_phase == IntersectionPhase.EXECUTING_RIGHT_TURN_MANEUVER_PRE_STRAIGHT:
+            if self.drive_distance_straight(
+                self.get_parameter("turn_right_pre_straight_distance").value,
+                self.get_parameter("turn_right_pre_straight_speed").value,
             ):
-                next_phase = (
-                    IntersectionPhase.EXECUTING_LEFT_TURN_MANEUVER_STRAIGHT
-                    if "LEFT" in self.current_phase.name
-                    else IntersectionPhase.EXECUTING_RIGHT_TURN_MANEUVER_STRAIGHT
-                )
-                self.change_phase(next_phase)
-        elif "TURN_MANEUVER_STRAIGHT" in self.current_phase.name:
-            if self.drive_distance_with_lane_follow(
-                self.get_parameter("post_turn_straight_distance").value,
-                self.get_parameter("turn_forward_speed").value,
+                self.change_phase(IntersectionPhase.EXECUTING_RIGHT_TURN_MANEUVER_COMBINED_TURN)
+        elif self.current_phase == IntersectionPhase.EXECUTING_RIGHT_TURN_MANEUVER_COMBINED_TURN:
+            if self.turn_to_target_yaw(
+                self.target_yaw_for_turn,
+                self.get_parameter("turn_right_combined_angular_speed").value,
+                self.get_parameter("turn_right_combined_forward_speed").value,
+            ):
+                self.change_phase(IntersectionPhase.FINAL_WAIT)
+        elif self.current_phase == IntersectionPhase.EXECUTING_RIGHT_TURN_MANEUVER_POST_STRAIGHT:
+            if self.drive_distance_straight(
+                self.get_parameter("turn_right_post_straight_distance").value,
+                self.get_parameter("turn_right_post_straight_speed").value,
+            ):
+                self.change_phase(IntersectionPhase.FINAL_WAIT)
+        elif self.current_phase == IntersectionPhase.EXECUTING_LEFT_TURN_MANEUVER_PRE_STRAIGHT:
+            if self.drive_distance_straight(
+                self.get_parameter("turn_left_pre_straight_distance").value,
+                self.get_parameter("turn_left_pre_straight_speed").value,
+            ):
+                self.change_phase(IntersectionPhase.EXECUTING_LEFT_TURN_MANEUVER_COMBINED_TURN)
+        elif self.current_phase == IntersectionPhase.EXECUTING_LEFT_TURN_MANEUVER_COMBINED_TURN:
+            if self.turn_to_target_yaw(
+                self.target_yaw_for_turn,
+                self.get_parameter("turn_left_combined_angular_speed").value,
+                self.get_parameter("turn_left_combined_forward_speed").value,
+            ):
+                self.change_phase(IntersectionPhase.EXECUTING_LEFT_TURN_MANEUVER_POST_STRAIGHT)
+        elif self.current_phase == IntersectionPhase.EXECUTING_LEFT_TURN_MANEUVER_POST_STRAIGHT:
+            if self.drive_distance_straight(
+                self.get_parameter("turn_left_post_straight_distance").value,
+                self.get_parameter("turn_left_post_straight_speed").value,
             ):
                 self.change_phase(IntersectionPhase.FINAL_WAIT)
         elif self.current_phase == IntersectionPhase.FINAL_WAIT:
@@ -580,6 +629,7 @@ class IntersectionHandlingNode(Node):
         twist_msg = Twist()
         twist_msg.linear.x = linear_x
         twist_msg.angular.z = float(angular_z)
+        self.get_logger().debug(f"Publishing cmd_vel: linear.x={linear_x:.2f}, angular.z={angular_z:.2f}")
         self.cmd_vel_publisher.publish(twist_msg)
 
     def stop_robot(self):
@@ -597,6 +647,7 @@ class IntersectionHandlingNode(Node):
             (self.current_pos_x - self.start_pos_x_segment) ** 2
             + (self.current_pos_y - self.start_pos_y_segment) ** 2
         )
+        self.get_logger().debug(f"Driving straight: Traveled {traveled:.2f}m / Target {target_distance:.2f}m (Current: ({self.current_pos_x:.2f}, {self.current_pos_y:.2f}), Start: ({self.start_pos_x_segment:.2f}, {self.start_pos_y_segment:.2f}), Tolerance: {DEFAULT_ODOM_DISTANCE_TOLERANCE:.2f})")
         if traveled >= target_distance - DEFAULT_ODOM_DISTANCE_TOLERANCE:
             self.stop_robot()
             return True
@@ -616,7 +667,19 @@ class IntersectionHandlingNode(Node):
         if abs(angle_diff) < DEFAULT_GOAL_TOLERANCE_ANGLE_RAD:
             self.stop_robot()
             return True
-        self.move_robot(forward_speed, angular_speed_cmd)
+        actual_angular_speed = angular_speed_cmd
+
+        # Optional: Verlangsamung bei Annäherung an das Ziel
+        # if abs(angle_diff) < math.radians(15):  # Beispiel: Verlangsame, wenn weniger als 10 Grad zum Ziel
+        #     actual_angular_speed *= 0.5 # Reduziere Geschwindigkeit um die Hälfte
+
+        # Optional: Verlangsamung bei Annäherung an das Ziel
+        # if abs(angle_diff) < math.radians(10):  # Beispiel: Verlangsame, wenn weniger als 10 Grad zum Ziel
+        #     actual_angular_speed *= 0.5 # Reduziere Geschwindigkeit um die Hälfte
+
+        self.get_logger().debug(f"Turning: Current Yaw {math.degrees(self.current_yaw):.1f} deg, Target Yaw {math.degrees(target_yaw):.1f} deg, Angle Diff {math.degrees(angle_diff):.1f} deg, Cmd Angular Speed: {actual_angular_speed:.2f}, Cmd Forward Speed: {forward_speed:.2f}")
+
+        self.move_robot(forward_speed, actual_angular_speed)
         return False
 
     def drive_distance_with_lane_follow(self, target_distance, speed) -> bool:
@@ -666,7 +729,7 @@ class IntersectionHandlingNode(Node):
 
         # Wenn der angepasste Bereich ungültig ist (min >= max), gibt es keine gültigen Indizes
         if adj_target_min_rad >= adj_target_max_rad:
-            # self.get_logger().debug(f"Angepasster Scanbereich ungültig: min_rad={adj_target_min_rad}, max_rad={adj_target_max_rad}")
+            self.get_logger().debug(f"Angepasster Scanbereich ungültig: min_rad={adj_target_min_rad}, max_rad={adj_target_max_rad}")
             return False
 
         # Konvertiere Winkel in Array-Indizes
@@ -682,10 +745,10 @@ class IntersectionHandlingNode(Node):
 
         # Erneute Prüfung, ob die Indizes nach Anpassung und Konvertierung gültig sind
         if start_index > end_index:
-            # self.get_logger().debug(f"Startindex {start_index} > Endindex {end_index} nach Indexberechnung.")
+            self.get_logger().debug(f"Startindex {start_index} > Endindex {end_index} nach Indexberechnung.")
             return False
 
-        # self.get_logger().debug(f"Scanning zone from index {start_index} to {end_index} for distance < {detection_distance:.2f}m.")
+        self.get_logger().debug(f"Scanning zone from index {start_index} to {end_index} for distance < {detection_distance:.2f}m.")
         for i in range(start_index, end_index + 1):
             dist = scan_msg.ranges[i]
             # Prüfe auf gültige Distanzwerte (nicht unendlich, nicht NaN)
@@ -698,7 +761,7 @@ class IntersectionHandlingNode(Node):
                 and dist <= scan_msg.range_max
                 and dist < detection_distance
             ):
-                # self.get_logger().debug(f"Hindernis bei Index {i} auf {dist:.2f}m erkannt (Ziel < {detection_distance:.2f}m).")
+                self.get_logger().debug(f"Hindernis bei Index {i} auf {dist:.2f}m erkannt (Ziel < {detection_distance:.2f}m).")
                 return (
                     True  # Hindernis im Zielbereich und innerhalb der Distanz gefunden
                 )
@@ -707,40 +770,46 @@ class IntersectionHandlingNode(Node):
     def change_phase(self, new_phase: IntersectionPhase):
         if self.current_phase == new_phase:
             return
-        # self.get_logger().info(f"Phase change: {self.current_phase.name} -> {new_phase.name}")
-        self.current_phase, self.phase_start_time = (
-            new_phase,
-            self.get_clock().now().nanoseconds / 1e9,
-        )
-        if "STRAIGHT_MANEUVER_PART" in new_phase.name or "FINAL" in new_phase.name:
-            self.start_pos_x_segment, self.start_pos_y_segment = (
-                self.current_pos_x,
-                self.current_pos_y,
-            )
-        elif new_phase == IntersectionPhase.DRIVING_TO_SIDE_SIGN_REFERENCE:
-            self.side_sign_detected_by_laser = False
-        elif new_phase == IntersectionPhase.CORRECTING_ANGLE_WITH_VISUAL_FEEDBACK:
-            self.current_visual_offset = None
-        elif "TURN_MANEUVER_TURN" in new_phase.name:
+        
+        self.get_logger().info(f"Phase change: {self.current_phase.name} -> {new_phase.name}")
+        self.current_phase = new_phase
+        self.phase_start_time = self.get_clock().now().nanoseconds / 1e9
+
+        # --- KORREKTUR: Logik aufgeteilt in unabhängige Blöcke ---
+
+        # 1. Startposition für Distanzmessungen zurücksetzen
+        position_reset_phases = [
+            "PRE_STRAIGHT", "POST_STRAIGHT", "STRAIGHT_MANEUVER", "FINAL"
+        ]
+        if any(phase_name in new_phase.name for phase_name in position_reset_phases):
+            self.start_pos_x_segment = self.current_pos_x
+            self.start_pos_y_segment = self.current_pos_y
+            self.get_logger().info(f"Segment start position reset at ({self.start_pos_x_segment:.2f}, {self.start_pos_y_segment:.2f})")
+
+        # 2. Start-Yaw für Drehungen zurücksetzen
+        if "TURN" in new_phase.name:
             self.start_yaw_for_turn = self.current_yaw
-            angle = (
-                DEFAULT_TURN_ANGLE_90_DEG
-                if "LEFT" in new_phase.name
-                else -DEFAULT_TURN_ANGLE_90_DEG
-            )
+            if new_phase == IntersectionPhase.EXECUTING_RIGHT_TURN_MANEUVER_COMBINED_TURN:
+                angle = -DEFAULT_TURN_ANGLE_90_DEG
+            else:  # Gilt für Links-Drehungen
+                angle = DEFAULT_TURN_ANGLE_90_DEG
             self.target_yaw_for_turn = self.normalize_angle(self.current_yaw + angle)
-        elif new_phase in [
-            IntersectionPhase.IDLE,
-            IntersectionPhase.ABORTING,
-            IntersectionPhase.INTERSECTION_FINISHED,
-        ]:
+            self.get_logger().info(f"Turn maneuver initiated. Start Yaw: {math.degrees(self.start_yaw_for_turn):.1f}, Target Yaw: {math.degrees(self.target_yaw_for_turn):.1f}")
+
+        # 3. Spezielle Aktionen für andere Phasen
+        if new_phase == IntersectionPhase.DRIVING_TO_SIDE_SIGN_REFERENCE:
+            self.side_sign_detected_by_laser = False
+        
+        if new_phase in [IntersectionPhase.IDLE, IntersectionPhase.ABORTING, IntersectionPhase.INTERSECTION_FINISHED]:
             self.stop_robot()
             if new_phase != IntersectionPhase.IDLE:
-                self.intersection_finished_publisher.publish(
-                    Bool(data=(new_phase == IntersectionPhase.INTERSECTION_FINISHED))
-                )
+                finished_msg = Bool()
+                finished_msg.data = (new_phase == IntersectionPhase.INTERSECTION_FINISHED)
+                self.intersection_finished_publisher.publish(finished_msg)
+            
             if new_phase != IntersectionPhase.INTERSECTION_FINISHED:
-                self.change_phase(IntersectionPhase.IDLE)
+                # Setzt den State sicher auf IDLE, um Schleifen zu vermeiden
+                self.current_phase = IntersectionPhase.IDLE
             self.maneuver_active_by_statemgr = False
 
 
@@ -753,7 +822,10 @@ def main(args=None):
     except KeyboardInterrupt:
         pass
     except Exception as e:
-        pass
+        if node:
+            node.get_logger().error(f"FATAL ERROR in intersection_handling_node: {e}\n{traceback.format_exc()}")
+        else:
+            print(f"FATAL ERROR in intersection_handling_node (before node init): {e}\n{traceback.format_exc()}", file=sys.stderr)
     finally:
         if node is not None:
             node.destroy_node()

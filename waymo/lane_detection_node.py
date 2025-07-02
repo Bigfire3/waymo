@@ -3,7 +3,7 @@ import rclpy
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 from rclpy.node import Node
 from sensor_msgs.msg import CompressedImage
-from std_msgs.msg import Float64
+from std_msgs.msg import Float64, String
 import sys
 import traceback
 from rcl_interfaces.msg import (
@@ -205,6 +205,11 @@ class LaneDetectionNode(Node):
             depth=1,
         )  # Offset ist Steuergröße
 
+        self.current_state = "UNKNOWN"  # Default state
+        self.state_subscriber = self.create_subscription(
+            String, "/robot/state", self.state_callback, qos_control_data
+        )
+
         self.subscription = self.create_subscription(
             CompressedImage,
             "/image_raw/compressed",
@@ -245,6 +250,9 @@ class LaneDetectionNode(Node):
         # EdgeDetection initialisieren, der Frame wird später im Callback übergeben
         self.edge_obj = None
 
+    def state_callback(self, msg: String):
+        self.current_state = msg.data
+
     def _publish_image(self, publisher, image, timestamp):
         """Hilfsfunktion zum Komprimieren und Publishen eines Bildes."""
         if image is None:
@@ -276,6 +284,8 @@ class LaneDetectionNode(Node):
             )
 
     def image_callback(self, msg: CompressedImage):
+        if self.current_state == "STOPPED_AT_TRAFFIC_LIGHT":
+            return
         try:
             # --- Bild dekodieren ---
             # Die empfangene Nachricht enthält die komprimierten Daten im 'data'-Feld

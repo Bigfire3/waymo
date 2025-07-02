@@ -203,12 +203,12 @@ class StateMachine(rclpy.node.Node):
         is_red = not msg.data  # Nachricht ist True für GRÜN
 
         if self.traffic_light_is_red and not is_red:
-            # self.get_logger().info("Ampel ist GRÜN, fahre los.")
+            # self.get_logger().info("Traffic light is GREEN, changing to FOLLOW_LANE.")
             self.traffic_light_is_red = False
             self.initial_traffic_light_check_done = True
             self.change_state(STATE_FOLLOW_LANE)
         elif not self.traffic_light_is_red and is_red:
-            # self.get_logger().info("Ampel ist ROT, warte.")
+            # self.get_logger().info("Traffic light is RED, staying at STOPPED_AT_TRAFFIC_LIGHT.")
             self.traffic_light_is_red = True
 
     def sign_detection_callback(self, msg: String):
@@ -278,10 +278,13 @@ class StateMachine(rclpy.node.Node):
             # Die Flags straight/left/right_sign_visually_detected werden in der control_loop (l) zurückgesetzt.
 
     def control_loop_callback(self):
+        # self.get_logger().info(f"Control Loop: Current State: {self.state}, Manual Pause Active: {self.manual_pause_active}")
         if self.manual_pause_active:
             self.send_cmd_vel(0.0, 0.0)
             self.publish_current_state()
             return
+
+        # self.get_logger().info(f"Control Loop: Current State: {self.state}, initial_traffic_light_check_done: {self.initial_traffic_light_check_done}, traffic_light_is_red: {self.traffic_light_is_red}")
 
         current_internal_state = self.state
         next_state = current_internal_state
@@ -290,6 +293,7 @@ class StateMachine(rclpy.node.Node):
             if self.traffic_light_is_red:
                 next_state = STATE_STOPPED_AT_TRAFFIC_LIGHT
             else:
+                # self.get_logger().info("Initial traffic light check done, setting initial_traffic_light_check_done to True.")
                 self.initial_traffic_light_check_done = True
                 next_state = STATE_FOLLOW_LANE
         else:
@@ -463,7 +467,6 @@ class StateMachine(rclpy.node.Node):
 
     def change_state(self, new_state):
         if self.state != new_state:
-            # self.get_logger().info(f"Zustandswechsel: {self.state} -> {new_state}")
             self.state = new_state
             if self.state in [
                 STATE_STOPPED_AT_OBSTACLE,
