@@ -66,8 +66,6 @@ class ImageAnalysisDebuggerNode(Node):
             140,
             int_desc("Threshold for binary image conversion in analysis"),
         )
-
-        # NEUER Parameter, um das Tal zu definieren
         self.declare_parameter(
             "histogram_valley_threshold",
             500,
@@ -75,6 +73,15 @@ class ImageAnalysisDebuggerNode(Node):
                 "Max 'height' in histogram to be considered a 'valley' (road)",
                 min_val=0,
                 max_val=50000,
+            ),
+        )
+        self.declare_parameter(
+            "background_brightness_threshold",
+            127,
+            int_desc(
+                "Pixel intensity threshold to determine if background is light or dark (0-255)",
+                min_val=0,
+                max_val=255,
             ),
         )
 
@@ -120,30 +127,51 @@ class ImageAnalysisDebuggerNode(Node):
         ).value
         binary_threshold = self.get_parameter("img_analysis_binary_threshold").value
         valley_threshold = self.get_parameter("histogram_valley_threshold").value
+        brightness_threshold = self.get_parameter(
+            "background_brightness_threshold"
+        ).value
 
-        # 2. Zuschneiden und Binarisieren
+        # 2. Hintergrundtyp bestimmen (hell oder dunkel)
+        # Nutze die unteren 40% des Bildes für eine stabile Erkennung
+        roi_top_bg = int(h * 0.6)
+        background_roi = frame[roi_top_bg:, :]
+        is_dark_background = True
+        if background_roi.size > 0:
+            gray_roi = cv2.cvtColor(background_roi, cv2.COLOR_BGR2GRAY)
+            avg_intensity = np.mean(gray_roi)
+            is_dark_background = avg_intensity < brightness_threshold
+            bg_type_str = "Dunkel" if is_dark_background else "Hell"
+            self.get_logger().info(
+                f"Untergrund erkannt: {bg_type_str} (Avg. Helligkeit: {avg_intensity:.1f})",
+                throttle_duration_sec=1,
+            )
+
+        # 3. Bild für die Analyse zuschneiden und binarisieren
         crop_top = int(h * crop_top_percent / 100.0)
         crop_bottom = int(h * crop_bottom_percent / 100.0)
         cropped_frame = frame[crop_top:crop_bottom, :]
         if cropped_frame.size == 0:
             return
         gray_frame = cv2.cvtColor(cropped_frame, cv2.COLOR_BGR2GRAY)
+
+        # Bei hellem Hintergrund das Bild invertieren, um die Linienerkennung konsistent zu halten
+        if not is_dark_background:
+            gray_frame = cv2.bitwise_not(gray_frame)
+
         _, binary_frame = cv2.threshold(
             gray_frame, binary_threshold, 255, cv2.THRESH_BINARY
         )
 
-        # 3. Histogramm berechnen
+        # 4. Histogramm berechnen
         histogram = np.sum(binary_frame, axis=0)
 
-        # 4. Das breiteste "Tal" (zusammenhängender Bereich unter dem Schwellenwert) finden
+        # 5. Das breiteste "Tal" (zusammenhängender Bereich unter dem Schwellenwert) finden
         is_valley = histogram < valley_threshold
 
-        # Finde Start- und Endpunkte der Täler
         diff = np.diff(is_valley.astype(int))
         starts = np.where(diff == 1)[0] + 1
         ends = np.where(diff == -1)[0]
 
-        # Randfälle behandeln (wenn Tal am Bildrand beginnt oder endet)
         if is_valley[0]:
             starts = np.insert(starts, 0, 0)
         if is_valley[-1]:
@@ -160,7 +188,7 @@ class ImageAnalysisDebuggerNode(Node):
                 road_start = starts[longest_block_idx]
                 road_end = ends[longest_block_idx]
 
-                # 5. Mitte des Tals berechnen
+                # 6. Mitte des Tals berechnen
                 road_center_pixel = (road_start + road_end) // 2
                 image_center_pixel = w // 2
                 pixel_offset = float(road_center_pixel - image_center_pixel)
@@ -180,7 +208,6 @@ class ImageAnalysisDebuggerNode(Node):
 
         # --- VISUALISIERUNG ---
 
-        # Zeichne Linien auf das Originalbild
         cv2.line(output_frame, (0, crop_top), (w, crop_top), (0, 255, 255), 1)
         cv2.line(output_frame, (0, crop_bottom), (w, crop_bottom), (0, 255, 255), 1)
         cv2.line(output_frame, (w // 2, 0), (w // 2, h), (0, 255, 0), 1)
@@ -216,37 +243,29 @@ class ImageAnalysisDebuggerNode(Node):
         cv2.imshow("1 - Original mit Overlays", output_frame)
         cv2.imshow("2 - Binarisiertes Bild (Cropped)", binary_frame)
 
-        # Histogramm-Visualisierung
         hist_h = 200
         hist_img = np.zeros((hist_h, w, 3), dtype=np.uint8)
-        hist_normalized = (
-            histogram
-            / (np.max(histogram) if np.max(histogram) > 0 else 1.0)
-            * (hist_h - 10)
-        ).astype(int)
+        hist_max = np.max(histogram) if np.max(histogram) > 0 else 1.0
+        hist_normalized = (histogram / hist_max * (hist_h - 10)).astype(int)
 
         for x, h_val in enumerate(hist_normalized):
             cv2.line(hist_img, (x, hist_h), (x, hist_h - h_val), (255, 255, 255), 1)
 
-        # Zeichne den Schwellenwert und das erkannte Tal ein
+        valley_thresh_y = hist_h - int(valley_threshold / hist_max * (hist_h - 10))
         cv2.line(
-            hist_img,
-            (0, hist_h - int(valley_threshold / np.max(histogram) * (hist_h - 10))),
-            (w, hist_h - int(valley_threshold / np.max(histogram) * (hist_h - 10))),
-            (0, 255, 255),
-            1,
+            hist_img, (0, valley_thresh_y), (w, valley_thresh_y), (0, 255, 255), 1
         )
         if road_start != -1:
             cv2.rectangle(
                 hist_img, (road_start, 0), (road_end, hist_h), (0, 255, 0), 1
-            )  # Grüner Kasten für das Tal
+            )
             cv2.line(
                 hist_img,
                 (road_center_pixel, 0),
                 (road_center_pixel, hist_h),
                 (255, 0, 0),
                 1,
-            )  # Blaue Linie für die Mitte
+            )
 
         cv2.imshow("3 - Histogramm (mit Tal-Erkennung)", hist_img)
         cv2.waitKey(1)
