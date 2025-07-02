@@ -272,7 +272,7 @@ class IntersectionHandlingNode(Node):
         )
         self.declare_parameter(
             "turn_left_post_straight_distance",
-            0.3,
+            0.35,
             float_desc(
                 "Distance to drive straight after left turn",
                 min_val=0.0,
