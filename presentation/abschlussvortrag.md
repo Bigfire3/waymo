@@ -115,7 +115,7 @@
 
 ---
 
-## 5.. Ausblick
+## 5. Ausblick
 
 + Umstellung der Schilderkennung von Template-Matching auf gut trainiertes Machine Learning Modell
 + Anpassen der Fahrbahnverfolgungs-Parameter für sauberes Fahren auf beiden Untergründen
