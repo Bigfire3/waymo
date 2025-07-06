@@ -42,12 +42,17 @@
 **Selbskritik:**
 
 + Implementierung der Schilderkennung war nicht robust genug
+
   + Verlass auf Template-Matching führte zu starker Abhängigkeit der Lichverhältnisse
+
 + Fahrbahnverfolgung war zu sehr auf die Rahmenbedingungn des schwarzen Untergrundes fokussiert
+  
   + Klarheit der Kanten
   + exakte Dicke der Linien
   + Blur, um der Reflexion entgegenzuwirken
+
 + Befahrung der Kreuzung war nicht robust genug, um nach Kurven in korrekte Ausgangslage zu gelangen
+  
   + Roboter fuhr zu weit nach links oder zu weit nach rechts, bevor der Roboter am Referenzpunkt war
   + Roboter fand dadurch nicht die Fahrbahn am Ende es Manövers
 
