@@ -8,7 +8,7 @@
 | **Veranstaltung:**   | `Robotik Projekt`                                                                     |
 | **Semester**         | `Sommersemester 2025`                                                                 |
 | **Hochschule:**      | `Technische Universität Bergakademie Freiberg`                                        |
-| **Inhalte:**         | `Exposé Vortrag`                                                                      |
+| **Inhalte:**         | `Zwischenvortrag`                                                                      |
 | **Link auf GitHub:** | https://github.com/Bigfire3/waymo/blob/documentation/presentation/zwischenvortrag.md  |
 | **Autoren**          | Fabian Zänker, Lucas Adler, Simon Hörtzsch @author                                    |
 
