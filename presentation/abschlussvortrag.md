@@ -21,7 +21,7 @@
 
 ## 1. Projektstand
 
-![Notion-Organisation](../Img/notion_zwischenstand.png "Übersicht über Aufgaben und Fristen zum Robotik Projekt in Notion-Datenbank")
+![Notion-Organisation](../Img/notion_final.png "Übersicht über Aufgaben und Fristen zum Robotik Projekt in Notion-Datenbank")
 
 ---
 
@@ -29,6 +29,8 @@
 
                          {{0-1}}
 ********************************************************************************
+
+**Beobachtungen:**
 
 + Netzwerkproblem sorgte für unsauberes Fahren
 + Ampelerkennung fiel aufgrund von falschen Filter-Parametern aus
@@ -69,7 +71,7 @@
   !?[Demo-Video Ampelerkennung zur Abgabe](https://youtu.be/)
 
 **Ampelerkennung wie sie hätte sein sollen**:
-  ![Demo-Video korrekte Ampelkennung](https://youtu.be/)
+  !?[Demo-Video korrekte Ampelkennung](https://youtu.be/)
 
 ********************************************************************************
 
@@ -105,10 +107,20 @@
 
 ---
 
-## 4. Ausblick
+## 4. Robustheit
 
-+ Spiegelung und Reflexion auf der Fahrbahn müssen noch besser behandelt werden
-+ Erweiterung um Kreuzungsmanöver
+**Histogramm bei Kreuzungs-Überquerung**:
+  
+  ![Debug-Bild Histogramm bei Kreuzungs-Überquerung](/Img/debug_hist_intersec.png)
+
+---
+
+## 5.. Ausblick
+
++ Umstellung der Schilderkennung von Template-Matching auf gut trainiertes Machine Learning Modell
++ Anpassen der Fahrbahnverfolgungs-Parameter für sauberes Fahren auf beiden Untergründen
++ Kreuzung: Nutzung des Histogramms auch bei Abbiegemanövern
++ Ampel: Anpassen der Region of Interest
 
 **Vielen Dank für Ihre Aufmerksamkeit!**
 
