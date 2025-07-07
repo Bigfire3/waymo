@@ -108,20 +108,20 @@
 
 ---
 
-## 5. Ausblick
+## 5. Gesamtfazit
+
+**Demo-Video Parkour:**
+  !?[Demo-Video korrekter Parkour](https://youtu.be/)
+
+## 6. Ausblick
+
+                         {{0-1}}
+********************************************************************************
 
 + Umstellung der Schilderkennung von Template-Matching auf gut trainiertes Machine Learning Modell
 + Anpassen der Fahrbahnverfolgungs-Parameter für sauberes Fahren auf beiden Untergründen
 + Kreuzung: Nutzung des Histogramms auch bei Abbiegemanövern
 + Ampel: Anpassen der Region of Interest
-
-## 6. Gesamtfazit
-
-                         {{0-1}}
-********************************************************************************
-
-**Demo-Video Parkour:**
-  !?[Demo-Video korrekter Parkour](https://youtu.be/)
 
 ********************************************************************************
 
