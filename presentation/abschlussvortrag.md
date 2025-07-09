@@ -102,7 +102,7 @@
 ## 4. Robustheit
 
 **Histogramm bei Kreuzungs-Überquerung**:
-  ![Debug-Bild Histogramm bei Kreuzungs-Überquerung](/Img/debug_hist_intersec.png)
+  ![Debug-Bild Histogramm bei Kreuzungs-Überquerung](../Img/debug_hist_intersec.png)
 
 ---
 
