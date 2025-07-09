@@ -85,10 +85,10 @@ class TrafficLightDetector(Node):
         )
         # NEU: Parameter für Rotbereich 2 (hohe Hue Werte)
         self.declare_parameter(
-            "hsv_lower_h2", 160, int_desc("Lower Hue 2 (0-180)", max_val=180)
+            "hsv_lower_h2", 150, int_desc("Lower Hue 2 (0-180)", max_val=180)
         )
         self.declare_parameter(
-            "hsv_upper_h2", 180, int_desc("Upper Hue 2 (0-180)", max_val=180)
+            "hsv_upper_h2", 160, int_desc("Upper Hue 2 (0-180)", max_val=180)
         )
         # Gemeinsame S und V Parameter
         self.declare_parameter(
@@ -106,7 +106,7 @@ class TrafficLightDetector(Node):
             "min_blob_area", 50, int_area_desc("Minimum Blob Area (pixels)")
         )  # Angepasster Startwert
         self.declare_parameter(
-            "max_blob_area", 250, int_area_desc("Maximum Blob Area (pixels)")
+            "max_blob_area", 500, int_area_desc("Maximum Blob Area (pixels)")
         )  # Deutlich erhöht
         # ROI
         self.declare_parameter(
@@ -187,7 +187,7 @@ class TrafficLightDetector(Node):
             # Parameter holen
             publish_mask_flag = self.get_parameter("publish_mask").value
             publish_overlay_flag = self.get_parameter("publish_overlay").value
-            roi_crop_factor = self.get_parameter("roi_crop_factor_h").value
+            roi_crop_factor_h = self.get_parameter("roi_crop_factor_h").value
 
             # Bild dekodieren
             np_arr = np.frombuffer(msg.data, np.uint8)
@@ -198,7 +198,7 @@ class TrafficLightDetector(Node):
 
             # ROI anwenden
             h, w, _ = frame.shape
-            frame_cropped = frame[0 : int(h * roi_crop_factor), :]
+            frame_cropped = frame[0 : int(h * roi_crop_factor_h), int(w * 0.6) : w]
 
             # Farbe erkennen (verwendet die oben deklarierten Parameter)
             detected, filtered_mask = self.detect_target_color(frame_cropped)
