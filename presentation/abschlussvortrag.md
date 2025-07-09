@@ -68,7 +68,7 @@
 ********************************************************************************
 
 **Ampelerkennung zur Abgabe**:
-  !?[Demo-Video Ampelerkennung zur Abgabe](https://youtu.be/)
+  !?[Demo-Video Ampelerkennung zur Abgabe](/Vid/ampel_abgabe.mp4)
 
 **Ampelerkennung wie sie hätte sein sollen**:
   !?[Demo-Video korrekte Ampelkennung](https://youtu.be/)
@@ -79,10 +79,10 @@
 ********************************************************************************
 
 **Schildererkennunung und Fahrbahnverfolgung zur Abgabe**:
-  !?[Demo-Video Schildererkennung und Fahrbahnverfolgung zur Abgabe](https://youtu.be/)
+  !?[Demo-Video Schildererkennung und Fahrbahnverfolgung zur Abgabe](/Vid/schilderkennung_abgabe.mp4)
 
 **Schildererkennung und Fahrbahnverfolgung wie sie hätte sein sollen**:
-  !?[Demo-Video korrekte Schildererkennung und Fahrbahnverfolgung](https://youtu.be/)
+  !?[Demo-Video korrekte Schildererkennung und Fahrbahnverfolgung](/Vid/schilderkennung_correct.mp4)
 
 ********************************************************************************
 
@@ -90,13 +90,12 @@
 ********************************************************************************
 
 **Kreuzung zur Abgabe**:
-  !?[Demo-Video Kreuzung zur Abgabe](https://youtu.be/)
+  !?[Demo-Video Kreuzung zur Abgabe](/Vid/parking_abgabe.mp4)
 
 **Kreuzung wie sie hätte sein sollen**:
   !?[Demo-Video korrekte Kreuzung](https://youtu.be/)
 
 ********************************************************************************
-
 
 ---
 
