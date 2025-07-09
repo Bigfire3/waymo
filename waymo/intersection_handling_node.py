@@ -61,7 +61,7 @@ DEFAULT_STRAIGHT_SPEED_FINAL = 0.2
 DEFAULT_TURN_FORWARD_SPEED = 0.2
 DEFAULT_TURN_ANGULAR_SPEED_RIGHT = 0.9
 DEFAULT_TURN_ANGULAR_SPEED_LEFT = 0.5
-VISUAL_CORRECTION_ANGULAR_SPEED = 0.2  # Angular speed for visual correction in rad/s
+VISUAL_CORRECTION_ANGULAR_SPEED = 0.1  # Angular speed for visual correction in rad/s
 DEFAULT_STRAIGHT_DISTANCE_PART1 = 0.4
 DEFAULT_STRAIGHT_DISTANCE_FINAL = 0.5
 DEFAULT_POST_TURN_STRAIGHT_DISTANCE = 0.1  # Distance to drive straight after a turn
@@ -412,7 +412,7 @@ class IntersectionHandlingNode(Node):
         )
         self.declare_parameter(
             "visual_centering_offset_correction",
-            30.0,
+            27.0,
             float_desc(
                 "Offset correction for visual centering in pixels",
                 min_val=-50.0,
@@ -429,7 +429,7 @@ class IntersectionHandlingNode(Node):
         )
         self.declare_parameter(
             "visual_correction_tolerance_pixels",
-            2.0,
+            1.0,
             float_desc("Pixel tolerance for visual correction maneuver"),
         )
         self.declare_parameter(
