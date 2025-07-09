@@ -6,84 +6,152 @@ from sensor_msgs.msg import CompressedImage
 from std_msgs.msg import Float64
 import sys
 import traceback
-from rcl_interfaces.msg import ParameterDescriptor, SetParametersResult, ParameterType, IntegerRange, FloatingPointRange
+from rcl_interfaces.msg import (
+    ParameterDescriptor,
+    SetParametersResult,
+    ParameterType,
+    IntegerRange,
+    FloatingPointRange,
+)
 from rclpy.parameter import Parameter
 
 import cv2
 import numpy as np
-from cv_bridge import CvBridge, CvBridgeError # CvBridge hinzugefügt
+from cv_bridge import CvBridge, CvBridgeError  # CvBridge hinzugefügt
+
 
 class ReflectionFilter(Node):
     def __init__(self):
-        super().__init__('reflection_filter')
-        self.bridge = CvBridge() # CvBridge Instanz
+        super().__init__("reflection_filter")
+        self.bridge = CvBridge()  # CvBridge Instanz
 
         # --- Parameter Descriptors ---
         # Behalte die Helferfunktionen bei, die wir vorher definiert haben
-        def int_desc(desc, min_val=0, max_val=255, step=1): return ParameterDescriptor(
-            type=ParameterType.PARAMETER_INTEGER, description=desc,
-            integer_range=[IntegerRange(from_value=min_val, to_value=max_val, step=step)])
+        def int_desc(desc, min_val=0, max_val=255, step=1):
+            return ParameterDescriptor(
+                type=ParameterType.PARAMETER_INTEGER,
+                description=desc,
+                integer_range=[
+                    IntegerRange(from_value=min_val, to_value=max_val, step=step)
+                ],
+            )
 
-        def float_desc(desc, min_val=0.0, max_val=1.0, step=0.001): return ParameterDescriptor(
-            type=ParameterType.PARAMETER_DOUBLE, description=desc,
-            floating_point_range=[FloatingPointRange(from_value=min_val, to_value=max_val, step=step)])
+        def float_desc(desc, min_val=0.0, max_val=1.0, step=0.001):
+            return ParameterDescriptor(
+                type=ParameterType.PARAMETER_DOUBLE,
+                description=desc,
+                floating_point_range=[
+                    FloatingPointRange(from_value=min_val, to_value=max_val, step=step)
+                ],
+            )
 
-        def bool_desc(desc): return ParameterDescriptor(
-             type=ParameterType.PARAMETER_BOOL, description=desc)
+        def bool_desc(desc):
+            return ParameterDescriptor(
+                type=ParameterType.PARAMETER_BOOL, description=desc
+            )
 
         # --- Parameter Deklarationen (basierend auf deiner "alten" Datei) ---
-        self.declare_parameter('threshold_1', 50, int_desc("threshold_1"))
-        self.declare_parameter('threshold_2', 200, int_desc("threshold_2"))
+        self.declare_parameter("threshold_1", 50, int_desc("threshold_1"))
+        self.declare_parameter("threshold_2", 200, int_desc("threshold_2"))
 
-        self.declare_parameter('ksize', 3, int_desc("ksize"))
-        self.declare_parameter('iterations', 1, int_desc("iterations"))
+        self.declare_parameter("ksize", 3, int_desc("ksize"))
+        self.declare_parameter("iterations", 1, int_desc("iterations"))
 
-        self.declare_parameter('d_value', 5, int_desc("d_value"))
-        self.declare_parameter('sigmaColor', 75, int_desc("sigmaColor"))
-        self.declare_parameter('sigmaSpace', 75, int_desc("sigmaSpace"))
+        self.declare_parameter("d_value", 5, int_desc("d_value"))
+        self.declare_parameter("sigmaColor", 75, int_desc("sigmaColor"))
+        self.declare_parameter("sigmaSpace", 75, int_desc("sigmaSpace"))
 
-        self.declare_parameter('min_contour_area', 100, int_desc("min_contour_area", max_val=1000))
-        self.declare_parameter('max_contour_area', 460, int_desc("max_contour_area", max_val=100000))
+        self.declare_parameter(
+            "min_contour_area", 100, int_desc("min_contour_area", max_val=1000)
+        )
+        self.declare_parameter(
+            "max_contour_area", 460, int_desc("max_contour_area", max_val=100000)
+        )
 
-        self.declare_parameter('roi_top_left_w', 0.2, float_desc("ROI TL Breite")) # Schrittweite 0.001
-        self.declare_parameter('roi_top_left_h', 0.7, float_desc("ROI TL Höhe")) # Schrittweite 0.001
-        self.declare_parameter('roi_top_right_w', 0.8, float_desc("ROI TR Breite")) # Schrittweite 0.001
-        self.declare_parameter('roi_top_right_h', 0.7, float_desc("ROI TR Höhe")) # Schrittweite 0.001
-        self.declare_parameter('roi_bottom_left_w', 0.0, float_desc("ROI BL Breite")) # Schrittweite 0.001
-        self.declare_parameter('roi_bottom_left_h', 1.0, float_desc("ROI BL Höhe")) # Schrittweite 0.001
-        self.declare_parameter('roi_bottom_right_w', 1.0, float_desc("ROI BR Breite")) # Schrittweite 0.001
-        self.declare_parameter('roi_bottom_right_h', 1.0, float_desc("ROI BR Höhe")) # Schrittweite 0.001
+        self.declare_parameter(
+            "roi_top_left_w", 0.2, float_desc("ROI TL Breite")
+        )  # Schrittweite 0.001
+        self.declare_parameter(
+            "roi_top_left_h", 0.7, float_desc("ROI TL Höhe")
+        )  # Schrittweite 0.001
+        self.declare_parameter(
+            "roi_top_right_w", 0.8, float_desc("ROI TR Breite")
+        )  # Schrittweite 0.001
+        self.declare_parameter(
+            "roi_top_right_h", 0.7, float_desc("ROI TR Höhe")
+        )  # Schrittweite 0.001
+        self.declare_parameter(
+            "roi_bottom_left_w", 0.0, float_desc("ROI BL Breite")
+        )  # Schrittweite 0.001
+        self.declare_parameter(
+            "roi_bottom_left_h", 1.0, float_desc("ROI BL Höhe")
+        )  # Schrittweite 0.001
+        self.declare_parameter(
+            "roi_bottom_right_w", 1.0, float_desc("ROI BR Breite")
+        )  # Schrittweite 0.001
+        self.declare_parameter(
+            "roi_bottom_right_h", 1.0, float_desc("ROI BR Höhe")
+        )  # Schrittweite 0.001
 
-        self.declare_parameter('min_thickness', 2.0, float_desc("Minimum thickness ratio", min_val=0.01, max_val=200.0, step=0.001))
-        self.declare_parameter('max_thickness', 10.0, float_desc("Maximum thickness ratio", min_val=0.01, max_val=200.0, step=0.001))
+        self.declare_parameter(
+            "min_thickness",
+            2.0,
+            float_desc(
+                "Minimum thickness ratio", min_val=0.01, max_val=200.0, step=0.001
+            ),
+        )
+        self.declare_parameter(
+            "max_thickness",
+            10.0,
+            float_desc(
+                "Maximum thickness ratio", min_val=0.01, max_val=200.0, step=0.001
+            ),
+        )
 
         self.declare_parameter("line_count", 20)
 
         # --- QoS und Subscriber/Publisher ---
-        qos_sensor_data = QoSProfile(reliability=ReliabilityPolicy.BEST_EFFORT, history=HistoryPolicy.KEEP_LAST, depth=1)
-        self.subscription = self.create_subscription(CompressedImage, '/image_raw/compressed', self.image_callback, qos_sensor_data)
+        qos_sensor_data = QoSProfile(
+            reliability=ReliabilityPolicy.BEST_EFFORT,
+            history=HistoryPolicy.KEEP_LAST,
+            depth=1,
+        )
+        self.subscription = self.create_subscription(
+            CompressedImage,
+            "/image_raw/compressed",
+            self.image_callback,
+            qos_sensor_data,
+        )
 
     def _publish_image(self, publisher, image, timestamp):
         """Hilfsfunktion zum Komprimieren und Publishen eines Bildes."""
         if image is None:
             return
         try:
-             if image.ndim == 2:
-                  image_bgr = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
-             else:
-                  image_bgr = image
+            if image.ndim == 2:
+                image_bgr = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+            else:
+                image_bgr = image
 
-             ret, buffer = cv2.imencode('.jpg', image_bgr, [int(cv2.IMWRITE_JPEG_QUALITY), 85])
-             if not ret:
-                  return
+            ret, buffer = cv2.imencode(
+                ".jpg", image_bgr, [int(cv2.IMWRITE_JPEG_QUALITY), 85]
+            )
+            if not ret:
+                return
 
-             msg = CompressedImage(format="jpeg", data=buffer.tobytes())
-             msg.header.stamp = timestamp
-             publisher.publish(msg)
+            msg = CompressedImage(format="jpeg", data=buffer.tobytes())
+            msg.header.stamp = timestamp
+            publisher.publish(msg)
         except CvBridgeError as e:
-              self.get_logger().error(f"CvBridge Fehler beim Publishen auf '{publisher.topic}': {e}", throttle_duration_sec=5)
+            self.get_logger().error(
+                f"CvBridge Fehler beim Publishen auf '{publisher.topic}': {e}",
+                throttle_duration_sec=5,
+            )
         except Exception as e:
-              self.get_logger().error(f"Allgemeiner Fehler beim Publishen auf '{publisher.topic}': {e}", throttle_duration_sec=5)
+            self.get_logger().error(
+                f"Allgemeiner Fehler beim Publishen auf '{publisher.topic}': {e}",
+                throttle_duration_sec=5,
+            )
 
     def image_callback(self, msg: CompressedImage):
         # --- Bild dekodieren ---
@@ -93,25 +161,41 @@ class ReflectionFilter(Node):
 
         height, width = frame.shape[:2]
 
-        self.roi_points = np.float32([
-            (width * self.get_parameter('roi_top_left_w').value, height * self.get_parameter('roi_top_left_h').value),   # top-left
-            (width * self.get_parameter('roi_bottom_left_w').value, height * self.get_parameter('roi_bottom_left_h').value),     # bottom-left
-            (width * self.get_parameter('roi_bottom_right_w').value, height * self.get_parameter('roi_bottom_right_h').value),     # bottom-right
-            (width * self.get_parameter('roi_top_right_w').value, height * self.get_parameter('roi_top_right_h').value)     # top-right
-        ])
+        self.roi_points = np.float32(
+            [
+                (
+                    width * self.get_parameter("roi_top_left_w").value,
+                    height * self.get_parameter("roi_top_left_h").value,
+                ),  # top-left
+                (
+                    width * self.get_parameter("roi_bottom_left_w").value,
+                    height * self.get_parameter("roi_bottom_left_h").value,
+                ),  # bottom-left
+                (
+                    width * self.get_parameter("roi_bottom_right_w").value,
+                    height * self.get_parameter("roi_bottom_right_h").value,
+                ),  # bottom-right
+                (
+                    width * self.get_parameter("roi_top_right_w").value,
+                    height * self.get_parameter("roi_top_right_h").value,
+                ),  # top-right
+            ]
+        )
         # Zielpunkte für die Perspektivtransformation
         padding = int(0.25 * width)
         orig_image_size = frame.shape[::-1][1:]
-        self.desired_roi_points = np.float32([
-            [padding, 0],
-            [padding, orig_image_size[1]],
-            [orig_image_size[0] - padding, orig_image_size[1]],
-            [orig_image_size[0] - padding, 0]
-        ])
+        self.desired_roi_points = np.float32(
+            [
+                [padding, 0],
+                [padding, orig_image_size[1]],
+                [orig_image_size[0] - padding, orig_image_size[1]],
+                [orig_image_size[0] - padding, 0],
+            ]
+        )
 
         warped_frame = self.perspective_transform(gray_scale_frame)
-        cropped = warped_frame[:, 160:width - 160]
-        cv2.imshow('Warped', cropped)
+        cropped = warped_frame[:, 160 : width - 160]
+        cv2.imshow("Warped", cropped)
 
         # Kontrast erhöhen
         # image_eq = cv2.equalizeHist(warped_frame)
@@ -120,8 +204,10 @@ class ReflectionFilter(Node):
         d_value = self.get_parameter("d_value").value
         sigmaColor = self.get_parameter("sigmaColor").value
         sigmaSpace = self.get_parameter("sigmaSpace").value
-        blur = cv2.bilateralFilter(cropped, d=d_value, sigmaColor=sigmaColor, sigmaSpace=sigmaSpace)
-        cv2.imshow('Blur', blur)
+        blur = cv2.bilateralFilter(
+            cropped, d=d_value, sigmaColor=sigmaColor, sigmaSpace=sigmaSpace
+        )
+        cv2.imshow("Blur", blur)
 
         # Kanten finden
         threshold_1 = self.get_parameter("threshold_1").value
@@ -133,7 +219,9 @@ class ReflectionFilter(Node):
         # Horizontal
 
         # Berechne gleichmäßige y-Positionen von unten nach oben
-        y_positions = np.linspace(h - 450, h - 25, self.get_parameter("line_count").value, dtype=int)
+        y_positions = np.linspace(
+            h - 450, h - 25, self.get_parameter("line_count").value, dtype=int
+        )
 
         # Linien zeichnen
         for y in y_positions:
@@ -141,7 +229,7 @@ class ReflectionFilter(Node):
 
         # Vertikal
         cv2.line(edges, (1, 1), (1, h), color=255, thickness=1)
-        cv2.line(edges, (w-1, 1), (w-1, h), color=255, thickness=1)
+        cv2.line(edges, (w - 1, 1), (w - 1, h), color=255, thickness=1)
 
         # --- Lücken schließen ---
         ksize = self.get_parameter("ksize").value
@@ -166,7 +254,6 @@ class ReflectionFilter(Node):
             #     cv2.drawContours(filled_mask, [cnt], -1, 255, cv2.FILLED)
         cv2.imshow("Filled", filled_mask)
 
-
         maske_invertiert = cv2.bitwise_not(bold_closed)
         masked = cv2.bitwise_and(filled_mask, filled_mask, mask=maske_invertiert)
         contours, _ = cv2.findContours(masked, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
@@ -176,14 +263,16 @@ class ReflectionFilter(Node):
 
         # --- Alle Flächen füllen ---
         for cnt in contours:
-            if cv2.contourArea(cnt) > self.get_parameter("min_contour_area").value and cv2.contourArea(cnt) < self.get_parameter("max_contour_area").value:  # kleinere Objekte ignorieren
+            if (
+                cv2.contourArea(cnt) > self.get_parameter("min_contour_area").value
+                and cv2.contourArea(cnt) < self.get_parameter("max_contour_area").value
+            ):  # kleinere Objekte ignorieren
                 cv2.drawContours(filled_masked, [cnt], -1, 255, cv2.FILLED)
 
         cv2.imshow("Gefüllte Flächen", filled_masked)
 
         filtered_frame = self.filter_lane_markings_by_thickness(filled_masked)
         cv2.imshow("Filtered frame", filtered_frame)
-
 
         # Leeres Binärbild (gleiche Größe)
         output_mask = np.zeros_like(frame, dtype=np.uint8)
@@ -207,50 +296,69 @@ class ReflectionFilter(Node):
         #                 (0, 255, 0),        # grün
         #                 -1,                 # gefüllt
         #                 cv2.LINE_AA)
-            
-                
+
         # cv2.imshow('Points', frame)
         # cv2.imshow('Filled', output_mask)
 
         cv2.waitKey(1)
 
-
     def destroy_node(self):
         self.get_logger().info("Shutting down Lane Detection Node.")
-        try: cv2.destroyAllWindows()
-        except Exception: pass
+        try:
+            cv2.destroyAllWindows()
+        except Exception:
+            pass
         super().destroy_node()
-    
+
     def perspective_transform(self, frame=None):
         try:
-             self.transformation_matrix = cv2.getPerspectiveTransform(self.roi_points, self.desired_roi_points)
-             self.inv_transformation_matrix = cv2.getPerspectiveTransform(self.desired_roi_points, self.roi_points)
-        except cv2.error as e: print(f"Fehler bei getPerspectiveTransform: {e}"); self.warped_frame=None; self.transformation_matrix=None; self.inv_transformation_matrix=None; return
+            self.transformation_matrix = cv2.getPerspectiveTransform(
+                self.roi_points, self.desired_roi_points
+            )
+            self.inv_transformation_matrix = cv2.getPerspectiveTransform(
+                self.desired_roi_points, self.roi_points
+            )
+        except cv2.error as e:
+            print(f"Fehler bei getPerspectiveTransform: {e}")
+            self.warped_frame = None
+            self.transformation_matrix = None
+            self.inv_transformation_matrix = None
+            return
         try:
             h, w = frame.shape[:2]
-            warped_frame = cv2.warpPerspective(frame, self.transformation_matrix, (w, h), flags=cv2.INTER_LINEAR)
-        except cv2.error as e: print(f"Fehler bei warpPerspective: {e}"); self.warped_frame = None; return
-        
+            warped_frame = cv2.warpPerspective(
+                frame, self.transformation_matrix, (w, h), flags=cv2.INTER_LINEAR
+            )
+        except cv2.error as e:
+            print(f"Fehler bei warpPerspective: {e}")
+            self.warped_frame = None
+            return
+
         mask = np.zeros_like(warped_frame, dtype=np.uint8)
         cv2.fillPoly(mask, [np.int32(self.desired_roi_points)], 255)
         warped_frame = cv2.bitwise_and(warped_frame, mask)
-        
+
         return warped_frame
-    
+
     def filter_lane_markings_by_thickness(self, frame):
-        min_thickness = self.get_parameter('min_thickness').value
-        max_thickness = self.get_parameter('max_thickness').value
-        contours, hierarchy = cv2.findContours(frame, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        min_thickness = self.get_parameter("min_thickness").value
+        max_thickness = self.get_parameter("max_thickness").value
+        contours, hierarchy = cv2.findContours(
+            frame, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+        )
         filtered_mask = np.zeros_like(frame)
 
         for contour in contours:
             area = cv2.contourArea(contour)
             perimeter = cv2.arcLength(contour, True)
-            if perimeter == 0 or area < 5: continue
+            if perimeter == 0 or area < 5:
+                continue
             thickness_ratio = area / perimeter
             if min_thickness <= thickness_ratio <= max_thickness:
-                cv2.drawContours(filtered_mask, [contour], -1, 255, thickness=cv2.FILLED)
-        
+                cv2.drawContours(
+                    filtered_mask, [contour], -1, 255, thickness=cv2.FILLED
+                )
+
         return filtered_mask
 
 
@@ -262,18 +370,28 @@ def main(args=None):
         node = ReflectionFilter()
         rclpy.spin(node)
     except KeyboardInterrupt:
-        if node: pass
-        else: print("KeyboardInterrupt received before node init.", file=sys.stderr)
+        if node:
+            pass
+        else:
+            print("KeyboardInterrupt received before node init.", file=sys.stderr)
     except Exception as e:
         # Logge Fehler, bevor Node zerstört wird
-        if node: node.get_logger().error(f"FATALER FEHLER in LaneDetectionNode: {e}\n{traceback.format_exc()}")
-        else: print(f"FATALER FEHLER vor Node-Init: {e}\n{traceback.format_exc()}", file=sys.stderr)
+        if node:
+            node.get_logger().error(
+                f"FATALER FEHLER in LaneDetectionNode: {e}\n{traceback.format_exc()}"
+            )
+        else:
+            print(
+                f"FATALER FEHLER vor Node-Init: {e}\n{traceback.format_exc()}",
+                file=sys.stderr,
+            )
     finally:
         if node and isinstance(node, Node):
             if rclpy.ok():
-                 node.destroy_node()
+                node.destroy_node()
         if rclpy.ok():
             rclpy.shutdown()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

@@ -1,0 +1,51 @@
+# .github/workflows/format.yml
+
+name: Format Python Code
+
+on:
+  push:
+    paths:
+      - 'waymo/**'  # Führt die Action nur aus, wenn sich etwas im waymo-Ordner ändert
+
+permissions:
+  contents: write # Erlaubt das Schreiben in das Repository, um formatierte Dateien zurückzupushen
+
+jobs:
+  format:
+    runs-on: ubuntu-latest # Verwendet eine aktuelle Ubuntu-Umgebung
+    steps:
+      # Schritt 1: Code aus dem Repository auschecken
+      - name: Check out code
+        uses: actions/checkout@v4
+        with:
+          # Token wird benötigt, um Änderungen zurückzupushen
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Schritt 2: Python-Umgebung einrichten
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10' # Du kannst hier deine bevorzugte Python-Version eintragen
+
+      # Schritt 3: Black installieren
+      - name: Install Black
+        run: pip install black
+
+      # Schritt 4: Black auf den Ordner anwenden
+      - name: Run Black Formatter
+        run: black waymo/
+
+      # Schritt 5: Änderungen committen und pushen, falls vorhanden
+      - name: Commit and push changes
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add waymo/
+          # Prüfen, ob es Änderungen zum Committen gibt
+          if git diff --staged --quiet; then
+            echo "Keine Änderungen durch Black, alles ist bereits formatiert."
+          else
+            git commit -m "Automated code formatting by Black"
+            git push
+            echo "Code wurde von Black formatiert und gepusht."
+          fi
