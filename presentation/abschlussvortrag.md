@@ -71,7 +71,7 @@
   !?[Demo-Video Ampelerkennung zur Abgabe](https://youtu.be/d3KgZaakcwA)
 
 **Ampelerkennung wie sie hätte sein sollen**:
-  !?[Demo-Video korrekte Ampelkennung](https://youtu.be/)
+  !?[Demo-Video korrekte Ampelkennung](https://youtu.be/yzeB9KjofH4)
 
 ********************************************************************************
 
@@ -89,11 +89,11 @@
                          {{2-3}}
 ********************************************************************************
 
-**Kreuzung zur Abgabe**:
+**Links-Abbiegen zur Abgabe**:
   !?[Demo-Video Kreuzung zur Abgabe](https://youtu.be/x7_WZDuxvvk)
 
-**Kreuzung wie sie hätte sein sollen**:
-  !?[Demo-Video korrekte Kreuzung](https://youtu.be/)
+**Links-Abbiegen wie es hätte sein sollen**:
+  !?[Demo-Video korrekte Kreuzung](https://youtu.be/cqxgNSiKVn0)
 
 ********************************************************************************
 
@@ -110,7 +110,7 @@
 ## 5. Gesamtfazit
 
 **Demo-Video Parkour:**
-  !?[Demo-Video korrekter Parkour](https://youtu.be/)
+  !?[Demo-Video korrekter Parkour](https://youtu.be/Un4iEgerI_s)
 
 ## 6. Ausblick
 
